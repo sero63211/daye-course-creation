@@ -1,0 +1,81 @@
+// Firestore Sicherheitsregeln
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Zugriff auf Sprachen für alle Benutzer erlauben
+    match /languages/{language} {
+      allow read: if true;
+    }
+
+    // Nur autorisierte Benutzer dürfen Kurse lesen
+    match /courses/{courseId} {
+      allow read: if request.auth != null;
+    }
+    
+      // Benutzer dürfen nur auf ihre eigenen Kurse zugreifen
+    match /userCourses/{courseId} {
+      allow read: if request.auth != null && (resource == null || request.auth.uid == resource.data.userId);
+      allow write: if request.auth != null && request.auth.uid == request.resource.data.userId;
+    }
+    
+
+    // Zugriff auf Benutzer nur für den spezifischen Benutzer erlauben
+    match /users/{userId} {
+      allow read, write: if request.auth.uid == userId;
+    }
+    
+    // Zugriff auf Benutzererfahrungen nur für den spezifischen Benutzer erlauben
+    match /userExperiences/{userId} {
+      allow read, create, update, delete: if request.auth.uid == userId;
+    }
+
+    // Chat-Konversationen dürfen nur von autorisierten Benutzern gelesen werden
+    match /chatConversations/{documentId} {
+      allow read, write: if request.auth != null;
+     }
+    
+      match /teachingLessons/{documentId} {
+      allow read, write: if request.auth != null;
+     }
+
+    // Users can only read and write their own achievements
+    match /userAchievements/{userId} {
+      allow read: if request.auth != null && (resource == null || request.auth.uid == resource.data.userId);
+      allow write: if request.auth != null && request.auth.uid == request.resource.data.userId;
+      }
+
+
+    // Vokabular darf nur von autorisierten Benutzern gelesen werden
+    match /images/{imageId} {
+      allow read,write: if request.auth != null;
+    }
+    
+     match /vocabularies/{vocabularyId} {
+      allow read,write: if request.auth != null;
+    }
+       match /grammarSentences/{grammarId} {
+      allow read,write: if request.auth != null;
+    }
+       match /conversationSentences/{conversationId} {
+      allow read,write: if request.auth != null;
+    }
+
+    // Users can only read and write their own studies
+    match /userStudies/{studyId} {
+      allow read: if request.auth != null && (resource == null || request.auth.uid == resource.data.userId);
+      allow write: if request.auth.uid == request.resource.data.userId;
+    }
+
+    // Zugriff auf Benutzerfeedbacks: Schreiben erlaubt für authentifizierte Benutzer, Lesen nicht erlaubt
+    match /userFeedbacks/{feedbackId} {
+       allow read,write: if request.auth != null;
+
+    }
+
+    // Kein Zugriff auf andere Dokumente
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
