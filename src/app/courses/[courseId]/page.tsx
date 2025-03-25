@@ -403,8 +403,10 @@ export default function CourseDetailPage() {
 
   // Funktion für Klick auf die gesamte Lektion - navigiert ebenfalls zur Bearbeitung
   const handleLessonClick = (lessonId: string) => {
-    // Da es keine LessonViewPage gibt, leiten wir direkt zur Edit-Seite weiter
-    router.push(`/lessons/${lessonId}/edit`);
+    if (!formData?.id) return;
+    router.push(
+      `/lessons/${lessonId}/edit?courseId=${encodeURIComponent(formData.id)}`
+    );
   };
 
   if (!formData) {

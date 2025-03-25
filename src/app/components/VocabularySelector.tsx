@@ -23,70 +23,35 @@ const VocabularySelector: React.FC<VocabularySelectorProps> = ({
   const [expandedTopics, setExpandedTopics] = useState<Record<string, boolean>>(
     {}
   );
+  const [targetLanguage, setTargetLanguage] = useState<string>("german");
+  const [searchResults, setSearchResults] = useState<VocabularyItem[]>([]);
 
-  // Filter and highlight functionality
-  const getFilteredTopicsAndItems = () => {
-    if (!groupedItems) return { filteredTopics: [], highlightedItems: {} };
-
-    const searchTermLower = searchTerm.toLowerCase().trim();
-    let highlightedItems: Record<string, boolean> = {};
-
-    // If no search term, return all topics but none expanded by default
-    if (searchTermLower === "") {
-      return {
-        filteredTopics: Object.keys(groupedItems),
-        highlightedItems,
-      };
+  // Process search results separately
+  useEffect(() => {
+    if (!searchTerm.trim() || !groupedItems) {
+      setSearchResults([]);
+      return;
     }
 
-    // Filter topics and items based on search term
-    const matchingTopics = Object.keys(groupedItems).filter((topic) => {
-      // Check if topic name matches
-      const topicMatches = topic.toLowerCase().includes(searchTermLower);
+    const results: VocabularyItem[] = [];
+    const searchLower = searchTerm.toLowerCase();
 
-      // Check if any items in this topic match
-      const hasMatchingItems = groupedItems[topic].some((item) => {
-        const wordMatches = item.word.toLowerCase().includes(searchTermLower);
-        const translationMatches = item.translation
-          .toLowerCase()
-          .includes(searchTermLower);
-        const synonymMatches = item.synonym
-          ? item.synonym.some((syn) =>
-              syn.toLowerCase().includes(searchTermLower)
-            )
-          : false;
-
-        // If any item matches, mark it for highlighting
-        if (wordMatches || translationMatches || synonymMatches) {
-          highlightedItems[item.id] = true;
-          return true;
+    // Search through all topics and items
+    Object.values(groupedItems).forEach((items) => {
+      items.forEach((item) => {
+        if (
+          item.word.toLowerCase().includes(searchLower) ||
+          item.translation.toLowerCase().includes(searchLower) ||
+          (item.synonym &&
+            item.synonym.some((syn) => syn.toLowerCase().includes(searchLower)))
+        ) {
+          results.push(item);
         }
-        return false;
       });
-
-      // If the topic has matching items, auto-expand it
-      if (hasMatchingItems) {
-        expandedTopics[topic] = true;
-      }
-
-      return topicMatches || hasMatchingItems;
     });
 
-    return {
-      filteredTopics: matchingTopics,
-      highlightedItems,
-    };
-  };
-
-  const { filteredTopics, highlightedItems } = getFilteredTopicsAndItems();
-
-  // Toggle a topic's expanded state
-  const toggleTopic = (topic: string) => {
-    setExpandedTopics((prev) => ({
-      ...prev,
-      [topic]: !prev[topic],
-    }));
-  };
+    setSearchResults(results);
+  }, [searchTerm, groupedItems]);
 
   return (
     <div className="mb-4 border p-4 rounded-md bg-gray-50">
@@ -98,6 +63,22 @@ const VocabularySelector: React.FC<VocabularySelectorProps> = ({
           onChange={(e) => {
             console.log("🔍 Language selection changed to:", e.target.value);
             setSelectedLanguage(e.target.value as any);
+          }}
+        >
+          <option value="german">Deutsch</option>
+          <option value="english">Englisch</option>
+          <option value="arabic">Arabisch</option>
+          <option value="french">Französisch</option>
+          <option value="italian">Italienisch</option>
+          <option value="dutch">Niederländisch</option>
+          <option value="turkish">Türkisch</option>
+        </select>
+
+        <select
+          className="p-2 border rounded cursor-pointer text-black"
+          value={targetLanguage}
+          onChange={(e) => {
+            setTargetLanguage(e.target.value);
           }}
         >
           <option value="german">Deutsch</option>
@@ -144,94 +125,116 @@ const VocabularySelector: React.FC<VocabularySelectorProps> = ({
             </div>
           ) : (
             <div className="max-h-60 overflow-y-auto">
-              {filteredTopics.length === 0 ? (
-                <p className="text-gray-500 p-2">Keine Vokabeln gefunden.</p>
-              ) : (
-                filteredTopics.map((topic) => (
-                  <div key={topic} className="mb-2">
-                    <h3
-                      className="font-semibold text-blue-600 cursor-pointer flex items-center"
-                      onClick={() => toggleTopic(topic)}
-                    >
-                      <span
-                        className={`mr-1 transition-transform ${
-                          expandedTopics[topic] ? "transform rotate-90" : ""
-                        }`}
-                      >
-                        ▶
-                      </span>
-                      {topic} ({groupedItems[topic].length})
-                    </h3>
+              {/* Show direct search results when searching */}
+              {searchTerm.trim() !== "" && (
+                <div className="mb-4">
+                  <h3 className="font-semibold text-blue-600 mb-2">
+                    Suchergebnisse
+                  </h3>
+                  {searchResults.length === 0 ? (
+                    <p className="text-gray-500 p-2">
+                      Keine Ergebnisse gefunden.
+                    </p>
+                  ) : (
+                    <ul className="space-y-1">
+                      {searchResults.map((item) => (
+                        <li
+                          key={item.id}
+                          className="py-1 px-2 hover:bg-gray-100 cursor-pointer rounded bg-yellow-50"
+                          onClick={() => handleSelectVocabulary(item)}
+                        >
+                          <span className="font-medium text-black">
+                            {item.word}
+                          </span>{" "}
+                          -{" "}
+                          <span className="text-black">{item.translation}</span>
+                          {item.synonym?.length > 0 && (
+                            <div className="text-xs text-gray-500 mt-1">
+                              Synonyme: {item.synonym.join(", ")}
+                            </div>
+                          )}
+                          <div className="text-xs text-gray-600">
+                            Kategorie: {item.topic}
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              )}
 
-                    {/* Zeige Items nur, wenn der Abschnitt erweitert ist */}
-                    {expandedTopics[topic] && (
-                      <ul className="ml-4 mt-1">
-                        {/* Filter die Items, wenn es einen Suchbegriff gibt */}
-                        {(searchTerm.trim() === ""
-                          ? groupedItems[topic]
-                          : groupedItems[topic].filter((item) => {
-                              const wordMatches = item.word
-                                .toLowerCase()
-                                .includes(searchTerm.toLowerCase());
-                              const translationMatches = item.translation
-                                .toLowerCase()
-                                .includes(searchTerm.toLowerCase());
-                              const synonymMatches = item.synonym
-                                ? item.synonym.some((syn) =>
-                                    syn
-                                      .toLowerCase()
-                                      .includes(searchTerm.toLowerCase())
-                                  )
-                                : false;
-                              return (
-                                wordMatches ||
-                                translationMatches ||
-                                synonymMatches
-                              );
-                            })
-                        ).map((item) => (
-                          <li
-                            key={item.id}
-                            className={`py-1 px-2 hover:bg-gray-100 cursor-pointer rounded ${
-                              highlightedItems[item.id] ? "bg-yellow-50" : ""
+              {/* Only show topics when not searching or when explicitly requested */}
+              {searchTerm.trim() === "" && (
+                <>
+                  {Object.keys(groupedItems).length === 0 ? (
+                    <p className="text-gray-500 p-2">
+                      Keine Vokabeln gefunden.
+                    </p>
+                  ) : (
+                    Object.keys(groupedItems).map((topic) => (
+                      <div key={topic} className="mb-2">
+                        <h3
+                          className="font-semibold text-blue-600 cursor-pointer flex items-center"
+                          onClick={() => {
+                            setExpandedTopics((prev) => ({
+                              ...prev,
+                              [topic]: !prev[topic],
+                            }));
+                          }}
+                        >
+                          <span
+                            className={`mr-1 transition-transform ${
+                              expandedTopics[topic] ? "transform rotate-90" : ""
                             }`}
-                            onClick={() => handleSelectVocabulary(item)}
                           >
-                            <span className="font-medium text-black">
-                              {item.word}
-                            </span>{" "}
-                            -{" "}
-                            <span className="text-black">
-                              {item.translation}
-                            </span>
-                            {item.synonym?.length > 0 && (
-                              <div className="text-xs text-gray-500 mt-1">
-                                Synonyme: {item.synonym.join(", ")}
-                              </div>
-                            )}
-                            {(item.audioURL ||
-                              item.audioURL ||
-                              item.imageURL ||
-                              item.imageURL) && (
-                              <div className="text-xs text-black mt-1 flex gap-2">
-                                {(item.audioURL || item.audioURL) && (
-                                  <span className="text-blue-500">
-                                    🔊 Audio verfügbar
-                                  </span>
+                            ▶
+                          </span>
+                          {topic} ({groupedItems[topic].length})
+                        </h3>
+
+                        {/* Show items when topic is expanded */}
+                        {expandedTopics[topic] && (
+                          <ul className="ml-4 mt-1">
+                            {groupedItems[topic].map((item) => (
+                              <li
+                                key={item.id}
+                                className="py-1 px-2 hover:bg-gray-100 cursor-pointer rounded"
+                                onClick={() => handleSelectVocabulary(item)}
+                              >
+                                <span className="font-medium text-black">
+                                  {item.word}
+                                </span>{" "}
+                                -{" "}
+                                <span className="text-black">
+                                  {item.translation}
+                                </span>
+                                {item.synonym?.length > 0 && (
+                                  <div className="text-xs text-gray-500 mt-1">
+                                    Synonyme: {item.synonym.join(", ")}
+                                  </div>
                                 )}
-                                {(item.imageURL || item.imageURL) && (
-                                  <span className="text-green-500">
-                                    🖼️ Bild verfügbar
-                                  </span>
+                                {(item.audioURL || item.imageURL) && (
+                                  <div className="text-xs text-black mt-1 flex gap-2">
+                                    {item.audioURL && (
+                                      <span className="text-blue-500">
+                                        🔊 Audio verfügbar
+                                      </span>
+                                    )}
+                                    {item.imageURL && (
+                                      <span className="text-green-500">
+                                        🖼️ Bild verfügbar
+                                      </span>
+                                    )}
+                                  </div>
                                 )}
-                              </div>
-                            )}
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </div>
-                ))
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+                    ))
+                  )}
+                </>
               )}
             </div>
           )}

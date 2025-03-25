@@ -27,86 +27,53 @@ export const fetchVocabularyData = async (
 ): Promise<Record<string, any>> => {
   console.log(`📚 fetchVocabularyData called for language: ${languageKey}`);
 
-  // Wenn die Sprache "unbekannt" ist, geben wir leere Daten zurück
-  if (languageKey === "unbekannt") {
-    console.log("📚 'unbekannt' language detected, returning empty data");
+  // If no language key or "unbekannt", return empty data without error
+  if (!languageKey || languageKey === "unbekannt") {
+    console.log(
+      "📚 No valid language key or 'unbekannt', returning empty data"
+    );
     return { data: {} };
-  }
-
-  // Check if language key is valid
-  if (!languageKey || languageKey.trim() === "") {
-    throw new Error("No valid language key provided");
   }
 
   // Normalize language key (lowercase and remove whitespace)
   const normalizedKey = languageKey.toLowerCase().trim();
 
   try {
-    // Versuche zuerst, die Datei zu importieren
-    let vocabularyData;
-
-    try {
-      // Vorsichtiger dynamischer Import mit einem Try-Catch-Block
-      vocabularyData = await import(
-        `/assets/vocabulary-list-${normalizedKey}.json`
-      );
-    } catch (importError) {
-      console.log(`📚 Import error, trying alternative path: ${importError}`);
-
-      try {
-        // Alternativer Pfad
-        vocabularyData = await import(
-          `../assets/vocabulary-list-${normalizedKey}.json`
-        );
-      } catch (alternativeImportError) {
-        console.log(`📚 Alternative import error: ${alternativeImportError}`);
-
-        // Versuche einen absoluten Pfad
-        try {
-          vocabularyData = await import(
-            `/src/app/assets/vocabulary-list-${normalizedKey}.json`
-          );
-        } catch (absoluteImportError) {
-          console.log(`📚 Absolute import error: ${absoluteImportError}`);
-
-          // Als letzten Ausweg versuche, die Datei über fetch zu laden
-          const publicPath = `/vocabulary-list-${normalizedKey}.json`;
-          if (await checkFileExists(publicPath)) {
-            const response = await fetch(publicPath);
-            vocabularyData = await response.json();
-          } else {
-            throw new Error(
-              `Vocabulary file not found for language: ${normalizedKey}`
-            );
-          }
-        }
+    // Try to fetch from public/assets directory
+    const response = await fetch(
+      `/assets/vocabulary-list-${normalizedKey}.json`,
+      {
+        method: "GET",
+        // Don't throw an error for 404
+        headers: { Accept: "application/json" },
       }
-    }
-
-    const jsonData = vocabularyData.default || vocabularyData;
-    console.log("📚 JSON data imported successfully");
-    return jsonData;
-  } catch (error) {
-    console.error(
-      `📚 Error loading vocabulary data for ${normalizedKey}:`,
-      error
     );
 
-    // Für "unbekannt" und andere Fehler einfach leere Daten zurückgeben
-    if (normalizedKey === "unbekannt") {
+    if (response.ok) {
+      const jsonData = await response.json();
+      console.log(`📚 Successfully loaded vocabulary for ${normalizedKey}`);
+      return jsonData;
+    } else {
+      console.log(
+        `📚 No vocabulary file found for ${normalizedKey}, returning empty data`
+      );
       return { data: {} };
     }
-
-    // Bei anderen Sprachen einen Fehler werfen
-    throw new Error(
-      `Failed to load vocabulary data for ${languageKey}. Make sure the vocabulary file exists.`
+  } catch (error) {
+    console.log(
+      `📚 Error loading vocabulary for ${normalizedKey}, returning empty data:`,
+      error
     );
+    return { data: {} };
   }
 };
 
-// Hook for using vocabulary data
-export const useVocabulary = (languageKey: string) => {
+export const useVocabulary = (
+  languageKey: string,
+  targetLanguage = "german"
+) => {
   console.log("📚 useVocabulary hook called with language:", languageKey);
+  console.log("📚 Target language for interface:", targetLanguage);
 
   const [groupedItems, setGroupedItems] = useState<
     Record<string, VocabularyItem[]>
@@ -121,16 +88,8 @@ export const useVocabulary = (languageKey: string) => {
 
   // Only attempt to fetch data if we have a valid language key
   useEffect(() => {
-    if (!processedLanguageKey) {
-      console.log("📚 No language key provided, skipping data fetch");
-      setGroupedItems({});
-      setIsLoading(false);
-      return;
-    }
-
-    // Spezialfall für "unbekannt" - überspringe das Laden und gib leere Daten zurück
-    if (processedLanguageKey === "unbekannt") {
-      console.log("📚 'unbekannt' language detected, skipping fetch");
+    if (!processedLanguageKey || processedLanguageKey === "unbekannt") {
+      console.log("📚 No valid language key, skipping data fetch");
       setGroupedItems({});
       setIsLoading(false);
       setError(null);
@@ -142,7 +101,10 @@ export const useVocabulary = (languageKey: string) => {
       setError(null);
 
       try {
-        console.log(`📚 Loading vocabulary data for ${processedLanguageKey}`);
+        // Determine which vocabulary file to load based on target language
+        const fileLanguageKey = `${targetLanguage}-${processedLanguageKey}`;
+        console.log(`📚 Loading vocabulary data for ${fileLanguageKey}`);
+
         const jsonData = await fetchVocabularyData(processedLanguageKey);
 
         // Process the data
@@ -152,15 +114,18 @@ export const useVocabulary = (languageKey: string) => {
           // Extract vocabulary items from the JSON data
           Object.entries(jsonData.data).forEach(
             ([key, value]: [string, any]) => {
-              vocabularyItems.push({
-                id: value.id || key,
-                word: value.word || "",
-                translation: value.translation || "",
-                synonym: value.synonym || [],
-                topic: value.topic || "Allgemein",
-                audioURL: value.audioURL,
-                imageURL: value.imageURL,
-              });
+              // Only include items that match our target language pattern
+              if (key.includes(`${targetLanguage}-${processedLanguageKey}`)) {
+                vocabularyItems.push({
+                  id: value.id || key,
+                  word: value.word || "",
+                  translation: value.translation || "",
+                  synonym: value.synonym || [],
+                  topic: value.topic || "Allgemein",
+                  audioURL: value.audioURL,
+                  imageURL: value.imageURL,
+                });
+              }
             }
           );
 
@@ -192,7 +157,7 @@ export const useVocabulary = (languageKey: string) => {
     };
 
     loadVocabulary();
-  }, [processedLanguageKey]);
+  }, [processedLanguageKey, targetLanguage]);
 
   return { groupedItems, isLoading, error };
 };

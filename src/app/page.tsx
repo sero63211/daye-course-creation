@@ -46,8 +46,17 @@ export default function HomePage() {
   const closeModel = () => setIsModelOpen(false);
 
   // Callback, um einen neu erstellten Kurs direkt zur Liste hinzuzufügen
-  const addCourseToList = (course: CourseModel) => {
-    setCourses((prevCourses) => [course, ...prevCourses]);
+  const addCourseToList = async (course: CourseModel) => {
+    try {
+      // Create the course in Firestore using CourseService
+      const createdCourse = await new CourseService().createCourse(course);
+
+      // Update the local state with the created course (which now has an ID)
+      setCourses((prevCourses) => [createdCourse, ...prevCourses]);
+    } catch (error) {
+      console.error("Fehler beim Erstellen des Kurses:", error);
+      // You might want to add user feedback for errors here
+    }
   };
 
   if (loading) {

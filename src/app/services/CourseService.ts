@@ -36,10 +36,18 @@ export class CourseService {
 
   // Einzelnen Kurs anhand der ID abrufen
   async getCourseById(id: string): Promise<CourseModel | null> {
+    console.log(`CourseService: Getting course with ID: ${id}`);
     const docRef = doc(db, "courseCreation", id);
     const docSnap = await getDoc(docRef);
-    if (!docSnap.exists()) return null;
+
+    if (!docSnap.exists()) {
+      console.error(`CourseService: Course with ID ${id} does not exist`);
+      return null;
+    }
+
     const data = docSnap.data() as Partial<CourseModel>;
+    console.log(`CourseService: Found course data:`, data);
+
     // Merge der Daten mit den Default-Werten
     return fillMissingCourseAttributes({ ...data, id: docSnap.id });
   }

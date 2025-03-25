@@ -52,28 +52,36 @@ const ContentInput: React.FC<ContentInputProps> = ({
   useEffect(() => {
     const checkVocabularyAvailability = async () => {
       if (!languageKey) {
-        console.log(
-          "ContentInput: No language key available, vocabulary not available"
-        );
         setVocabularyAvailable(false);
         return;
       }
 
       try {
-        // Try to dynamically import the vocabulary file
-        await import(`../assets/vocabulary-list-${languageKey}.json`);
-        console.log(
-          `ContentInput: Vocabulary file for "${languageKey}" is available`
+        // Simple HEAD request to check if file exists
+        const response = await fetch(
+          `/assets/vocabulary-list-${languageKey}.json`,
+          {
+            method: "HEAD",
+          }
         );
-        setVocabularyAvailable(true);
+
+        setVocabularyAvailable(response.ok);
+
+        if (response.ok) {
+          console.log(
+            `ContentInput: Vocabulary file for "${languageKey}" is available`
+          );
+        } else {
+          console.log(
+            `ContentInput: Vocabulary file for "${languageKey}" not available, but continuing without error`
+          );
+        }
       } catch (error) {
+        // Don't throw errors, just mark as unavailable
         console.log(
-          `ContentInput: Vocabulary file for "${languageKey}" not available:`,
-          error
+          `ContentInput: Error checking vocabulary file for "${languageKey}"`
         );
         setVocabularyAvailable(false);
-        // Hide vocabulary selector if showing
-        setShowVocabularySelector(false);
       }
     };
 

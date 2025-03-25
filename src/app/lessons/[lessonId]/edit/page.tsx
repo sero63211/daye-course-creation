@@ -139,61 +139,57 @@ const ContentManagerView: React.FC<ContentManagerViewProps> = ({
     }
   }, [courseModel]);
 
-  // 2. Effect to detect if we need to fetch course data
-  useEffect(() => {
-    if (!courseData && urlCourseId) {
-      setNeedsCourseData(true);
-    } else {
-      setNeedsCourseData(false);
-    }
-  }, [courseData, urlCourseId]);
-
-  // 3. Effect to fetch course by ID if needed
   useEffect(() => {
     const fetchCourseData = async () => {
-      if (needsCourseData && !isFetchingCourse && urlCourseId) {
+      if (urlCourseId) {
         try {
           setIsFetchingCourse(true);
           console.log(`Fetching course data for ID: ${urlCourseId}`);
 
           const courseService = new CourseService();
+          // Make sure we're using the exact urlCourseId string from the URL
           const fetchedCourse = await courseService.getCourseById(urlCourseId);
 
           if (fetchedCourse) {
             console.log("Successfully fetched course:", fetchedCourse);
             setCourseData(fetchedCourse);
 
+            // Immediately set the language name
             if (fetchedCourse.language?.name) {
               console.log(
-                `Setting language from fetched course: ${fetchedCourse.language.name}`
+                `Setting language from course: ${fetchedCourse.language.name}`
               );
               setLanguageName(fetchedCourse.language.name);
             }
           } else {
             console.error(`Course not found with ID: ${urlCourseId}`);
-            setLoadError(`Kurs mit ID ${urlCourseId} nicht gefunden.`);
           }
         } catch (error) {
           console.error("Error fetching course:", error);
-          setLoadError(
-            `Fehler beim Laden des Kurses: ${
-              error instanceof Error ? error.message : String(error)
-            }`
-          );
         } finally {
           setIsFetchingCourse(false);
-          setNeedsCourseData(false);
         }
       }
     };
 
     fetchCourseData();
-  }, [needsCourseData, urlCourseId, isFetchingCourse]);
-
+  }, [urlCourseId]);
   // 4. Log language changes for debugging
   useEffect(() => {
     console.log(`Current language name: ${languageName}`);
   }, [languageName]);
+  useEffect(() => {
+    // Check if we have a course with a valid language
+    if (
+      courseData?.language?.name &&
+      courseData.language.name !== "Unbekannt"
+    ) {
+      console.log(
+        `Setting language from courseData: ${courseData.language.name}`
+      );
+      setLanguageName(courseData.language.name);
+    }
+  }, [courseData]);
 
   // 5. Lesson data loading effect
   useEffect(() => {
