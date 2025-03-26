@@ -215,7 +215,7 @@ const StepDialog: React.FC<StepDialogProps> = ({
           </p>
         )}
 
-        <h2 className="text-xl font-bold mb-4 text-black">
+        <h2 className="text-xl font-bold mb-4 text-white">
           {dialogTitle}: {getStepTypeName(stepType)}
         </h2>
 

@@ -36,12 +36,17 @@ export class CourseService {
 
   // Einzelnen Kurs anhand der ID abrufen
   async getCourseById(id: string): Promise<CourseModel | null> {
-    console.log(`CourseService: Getting course with ID: ${id}`);
-    const docRef = doc(db, "courseCreation", id);
+    // Decode the URL-encoded ID
+    const decodedId = decodeURIComponent(id);
+
+    console.log(`CourseService: Getting course with ID: ${decodedId}`);
+    const docRef = doc(db, "courseCreation", decodedId);
     const docSnap = await getDoc(docRef);
 
     if (!docSnap.exists()) {
-      console.error(`CourseService: Course with ID ${id} does not exist`);
+      console.error(
+        `CourseService: Course with ID ${decodedId} does not exist`
+      );
       return null;
     }
 

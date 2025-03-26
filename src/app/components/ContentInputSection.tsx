@@ -7,14 +7,14 @@ interface ContentInputSectionProps {
   showHelp: boolean;
   toggleHelp: () => void;
   onAddContent: (item: EnhancedContentItem) => void;
-  languageName: string; // Accept language name prop
+  languageName: string;
 }
 
 const ContentInputSection: React.FC<ContentInputSectionProps> = ({
   showHelp,
   toggleHelp,
   onAddContent,
-  languageName, // Add this prop
+  languageName,
 }) => {
   const [newText, setNewText] = useState("");
   const [newTranslation, setNewTranslation] = useState("");
@@ -59,14 +59,14 @@ const ContentInputSection: React.FC<ContentInputSectionProps> = ({
   };
 
   return (
-    <div className="p-6">
-      <div className="flex items-center justify-between mb-4">
+    <div className="border-b border-gray-200">
+      <div className="flex items-center justify-between p-4 border-b border-gray-200">
         <h2 className="text-xl font-bold text-black">1. Inhalte hinzufügen</h2>
         <HelpToggle showHelp={showHelp} toggleHelp={toggleHelp} />
       </div>
 
       {showHelp && (
-        <div className="mb-4 p-4 bg-blue-50 border-l-4 border-blue-500 rounded">
+        <div className="mx-4 mt-4 p-3 bg-blue-50 border-l-4 border-blue-500 rounded">
           <p className="text-sm text-black">
             Hier kannst du Vokabeln, Sätze oder Erklärungstexte für deine
             Lektion hinzufügen. Diese kannst du später in Übungen verwenden.
@@ -90,7 +90,7 @@ const ContentInputSection: React.FC<ContentInputSectionProps> = ({
         handleAddExample={handleAddExample}
         handleRemoveExample={handleRemoveExample}
         onAddContent={handleAddContent}
-        languageName={languageName} // Pass language name to ContentInput
+        languageName={languageName}
       />
     </div>
   );

@@ -78,7 +78,7 @@ const ContentManagerView: React.FC<ContentManagerViewProps> = ({
   const [isFetchingCourse, setIsFetchingCourse] = useState(false);
   const [foundChapter, setFoundChapter] = useState<Chapter | null>(null);
   const currentChapterId = chapterId || foundChapter?.id;
-
+  const [courseLoadError, setCourseLoadError] = useState<string | null>(null);
   // Language state with better defaults
   const [languageName, setLanguageName] = useState<string>(() => {
     if (courseModel?.language?.name) {
@@ -127,45 +127,49 @@ const ContentManagerView: React.FC<ContentManagerViewProps> = ({
   // 1. Effect to update from courseModel when it changes
   useEffect(() => {
     if (courseModel) {
-      console.log("Updating from provided courseModel:", courseModel);
       setCourseData(courseModel);
 
       if (courseModel.language?.name) {
-        console.log(
-          `Setting language from courseModel: ${courseModel.language.name}`
-        );
         setLanguageName(courseModel.language.name);
       }
     }
   }, [courseModel]);
-
   useEffect(() => {
     const fetchCourseData = async () => {
       if (urlCourseId) {
         try {
           setIsFetchingCourse(true);
+
+          setCourseLoadError(null);
+
           console.log(`Fetching course data for ID: ${urlCourseId}`);
 
           const courseService = new CourseService();
-          // Make sure we're using the exact urlCourseId string from the URL
+
           const fetchedCourse = await courseService.getCourseById(urlCourseId);
 
           if (fetchedCourse) {
             console.log("Successfully fetched course:", fetchedCourse);
+
             setCourseData(fetchedCourse);
 
-            // Immediately set the language name
             if (fetchedCourse.language?.name) {
-              console.log(
-                `Setting language from course: ${fetchedCourse.language.name}`
-              );
               setLanguageName(fetchedCourse.language.name);
             }
           } else {
             console.error(`Course not found with ID: ${urlCourseId}`);
+
+            setCourseLoadError(
+              `Kurs mit ID ${urlCourseId} wurde nicht gefunden.`
+            );
           }
         } catch (error) {
           console.error("Error fetching course:", error);
+
+          const errorMessage =
+            error instanceof Error ? error.message : String(error);
+
+          setCourseLoadError(`Fehler beim Laden des Kurses: ${errorMessage}`);
         } finally {
           setIsFetchingCourse(false);
         }
@@ -699,145 +703,202 @@ const ContentManagerView: React.FC<ContentManagerViewProps> = ({
   }
 
   return (
-    <div className="bg-white rounded-lg border border-gray-200">
-      <div className="p-4 bg-gray-50 border-b border-gray-200 flex justify-between items-center">
-        <div>
-          <h1 className="text-xl font-bold text-gray-800">
-            {lessonData.title || "Neue Lektion"}
-          </h1>
-          {courseData && (
-            <p className="text-sm text-gray-500">
-              Kurs: {courseData.title}
-              {foundChapter && ` / Kapitel: ${foundChapter.title}`}
-            </p>
-          )}
-        </div>
-        {courseData && (
-          <button
-            onClick={navigateToCoursePage}
-            className="px-3 py-1 text-sm bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
-          >
-            Zurück zum Kurs
-          </button>
-        )}
-      </div>
+    <>
+      {isFetchingCourse && (
+        <div className="flex items-center justify-center p-10">
+          <div className="text-center">
+            <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-blue-500 border-r-transparent"></div>
 
-      {!hasValidLanguage() && (
-        <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 m-4">
-          <p className="text-yellow-700">
-            Keine Sprache erkannt für diesen Kurs. Vokabelfeatures werden
-            eingeschränkt sein.
-          </p>
+            <p className="mt-4">Kurs wird geladen...</p>
+          </div>
         </div>
       )}
 
-      <div className="flex flex-col md:flex-row">
-        {/* Left column: Content input and exercise types */}
-        <div className="w-full md:w-1/3 border-r border-gray-200">
-          <ContentInputSection
-            showHelp={showHelp}
-            toggleHelp={() => setShowHelp(!showHelp)}
-            onAddContent={addContentItem}
-            languageName={languageName}
-          />
+      {/* If course loading failed, show error state */}
 
-          <ExerciseTypeSection
-            exerciseTypes={availableStepTypes}
-            onSelect={handleSelectExerciseType}
-          />
+      {courseLoadError && !isFetchingCourse && (
+        <div className="bg-white rounded-lg border border-gray-200 p-6">
+          <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-4">
+            <div className="flex">
+              <div className="flex-shrink-0">
+                <svg
+                  className="h-5 w-5 text-red-400"
+                  viewBox="0 0 20 20"
+                  fill="currentColor"
+                >
+                  <path
+                    fillRule="evenodd"
+                    d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+              </div>
+
+              <div className="ml-3">
+                <p className="text-sm text-red-700">{courseLoadError}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-4">
+            <button
+              onClick={() => router.push("/")}
+              className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+            >
+              Zurück zur Kursübersicht
+            </button>
+          </div>
         </div>
+      )}
 
-        {/* Middle column: Created content display */}
-        <div className="w-full md:w-1/3 border-r border-gray-200">
-          <ContentDisplaySection
-            contentItems={contentItems}
-            onRemoveItem={removeContentItem}
-            onImageSelect={handleImageSelect}
-            onAudioSelect={handleAudioSelect}
-            audioPlaying={audioPlaying}
-            onAudioPlay={handleAudioPlay}
-          />
-        </div>
+      {!courseLoadError && !isFetchingCourse && (
+        <div className="bg-white rounded-lg border border-gray-200">
+          {/* Header section with lesson title and back button */}
+          <div className="p-4 bg-gray-50 border-b border-gray-200 flex justify-between items-center">
+            <div>
+              <h1 className="text-xl font-bold text-gray-800">
+                {lessonData.title || "Neue Lektion"}
+              </h1>
+              {courseData && (
+                <p className="text-sm text-gray-500">
+                  Kurs: {courseData.title}
+                  {foundChapter && ` / Kapitel: ${foundChapter.title}`}
+                </p>
+              )}
+            </div>
+            {courseData && (
+              <button
+                onClick={navigateToCoursePage}
+                className="px-3 py-1 text-sm bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
+              >
+                Zurück zum Kurs
+              </button>
+            )}
+          </div>
 
-        {/* Right column: iPhone preview */}
-        <div className="w-full md:w-1/3">
-          <PreviewSection
-            previewStep={previewStep}
-            getPreviewStepTitle={getPreviewStepTitle}
-          />
-        </div>
-      </div>
-
-      {/* Full width section for created exercises and learning model */}
-      <div className="border-t border-gray-200">
-        <div className="p-6">
-          <h2 className="text-xl font-bold text-black mb-4">
-            3. Erstellte Übungen
-          </h2>
-
-          <ExerciseSection
-            steps={selectedSteps}
-            availableStepTypes={availableStepTypes}
-            previewStepId={previewStep?.id}
-            onEditStep={handleEditStep}
-            onDeleteStep={deleteStep}
-            onMoveStep={moveStep}
-            onSelectPreviewStep={handleSelectPreviewStep}
-          />
-
-          {selectedSteps.length > 0 && (
-            <div className="mt-6">
-              <LessonDetailsSection
-                lessonId={internalLessonId}
-                lessonData={lessonData}
-                setLessonData={setLessonData}
-                selectedSteps={selectedSteps}
-                courseData={courseData}
-                currentChapterId={currentChapterId}
-                learningOverviewModel={learningOverviewModel}
-                setLearningOverviewModel={setLearningOverviewModel}
-              />
-
-              <SaveButton
-                isSaving={isSaving}
-                onSave={saveLanguageLearningOverview}
-                saveError={saveError}
-              />
+          {/* Language warning if needed */}
+          {!hasValidLanguage() && (
+            <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 m-4">
+              <p className="text-yellow-700">
+                Keine Sprache erkannt für diesen Kurs. Vokabelfeatures werden
+                eingeschränkt sein.
+              </p>
             </div>
           )}
+
+          {/* FIXED LAYOUT: Main three-column section with proper height constraints */}
+          <div className="flex flex-col md:flex-row">
+            {/* Left column: Content input and exercise types */}
+            <div className="w-full md:w-1/3 flex flex-col border-r border-gray-200">
+              <div className="flex-none">
+                <ContentInputSection
+                  showHelp={showHelp}
+                  toggleHelp={() => setShowHelp(!showHelp)}
+                  onAddContent={addContentItem}
+                  languageName={languageName}
+                />
+              </div>
+              <div className="flex-none">
+                <ExerciseTypeSection
+                  exerciseTypes={availableStepTypes}
+                  onSelect={handleSelectExerciseType}
+                />
+              </div>
+            </div>
+
+            {/* Middle column: Created content display */}
+            <div className="w-full md:w-1/3 border-r border-gray-200">
+              <ContentDisplaySection
+                contentItems={contentItems}
+                onRemoveItem={removeContentItem}
+                onImageSelect={handleImageSelect}
+                onAudioSelect={handleAudioSelect}
+                audioPlaying={audioPlaying}
+                onAudioPlay={handleAudioPlay}
+              />
+            </div>
+
+            {/* Right column: iPhone preview */}
+            <div className="w-full md:w-1/3">
+              <PreviewSection
+                previewStep={previewStep}
+                getPreviewStepTitle={getPreviewStepTitle}
+              />
+            </div>
+          </div>
+
+          {/* Full width section for created exercises and learning model */}
+          <div className="border-t border-gray-200">
+            <div className="p-6">
+              <h2 className="text-xl font-bold text-black mb-4">
+                3. Erstellte Übungen
+              </h2>
+
+              <ExerciseSection
+                steps={selectedSteps}
+                availableStepTypes={availableStepTypes}
+                previewStepId={previewStep?.id}
+                onEditStep={handleEditStep}
+                onDeleteStep={deleteStep}
+                onMoveStep={moveStep}
+                onSelectPreviewStep={handleSelectPreviewStep}
+              />
+
+              {selectedSteps.length > 0 && (
+                <div className="mt-6">
+                  <LessonDetailsSection
+                    lessonId={internalLessonId}
+                    lessonData={lessonData}
+                    setLessonData={setLessonData}
+                    selectedSteps={selectedSteps}
+                    courseData={courseData}
+                    currentChapterId={currentChapterId}
+                    learningOverviewModel={learningOverviewModel}
+                    setLearningOverviewModel={setLearningOverviewModel}
+                  />
+
+                  <SaveButton
+                    isSaving={isSaving}
+                    onSave={saveLanguageLearningOverview}
+                    saveError={saveError}
+                  />
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Hidden file inputs */}
+          <input
+            type="file"
+            ref={fileInputRef}
+            onChange={handleFileChange}
+            accept="image/*"
+            className="hidden"
+          />
+
+          <input
+            type="file"
+            ref={audioInputRef}
+            onChange={handleAudioChange}
+            accept="audio/x-m4a,audio/*"
+            className="hidden"
+          />
+
+          {/* Step Dialog */}
+          {activeStepType && isDialogOpen && (
+            <StepDialog
+              isOpen={true}
+              stepType={activeStepType}
+              contentItems={contentItems}
+              onClose={closeStepDialog}
+              onSave={handleSaveStep}
+              isSaveEnabled={true}
+              initialData={editingStepData}
+            />
+          )}
         </div>
-      </div>
-
-      {/* Hidden file inputs */}
-      <input
-        type="file"
-        ref={fileInputRef}
-        onChange={handleFileChange}
-        accept="image/*"
-        className="hidden"
-      />
-
-      <input
-        type="file"
-        ref={audioInputRef}
-        onChange={handleAudioChange}
-        accept="audio/x-m4a,audio/*"
-        className="hidden"
-      />
-
-      {/* Step Dialog */}
-      {activeStepType && isDialogOpen && (
-        <StepDialog
-          isOpen={true}
-          stepType={activeStepType}
-          contentItems={contentItems}
-          onClose={closeStepDialog}
-          onSave={handleSaveStep}
-          isSaveEnabled={true}
-          initialData={editingStepData}
-        />
       )}
-    </div>
+    </>
   );
 };
 
