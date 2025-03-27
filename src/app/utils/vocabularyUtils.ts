@@ -1,4 +1,3 @@
-// vocabularyUtils.ts
 import { useState, useEffect } from "react";
 
 export interface VocabularyItem {
@@ -25,34 +24,41 @@ export const normalizeText = (text: string = ""): string => {
 
 export const processVocabularyData = (
   jsonData: Record<string, any>,
-  sourceLanguage: string
+  selectedLanguage: string
 ): VocabularyItem[] => {
   const vocabularyItems: VocabularyItem[] = [];
-  const normalizedSourceLang = sourceLanguage.toLowerCase().trim();
-  Object.entries(jsonData).forEach(([key, value]) => {
-    if (!key.startsWith("vocabulary_")) return;
-    const keyParts = key.split("_");
-    if (keyParts.length >= 3) {
-      const langPart = keyParts[keyParts.length - 1];
-      const languages = langPart.split("-");
-      if (languages.length === 2) {
-        const keySource = languages[0].toLowerCase();
-        if (keySource === normalizedSourceLang) {
-          vocabularyItems.push({
-            id: value.id || key,
-            word: value.word || "",
-            translation: value.translation || "",
-            synonym: value.synonym || [],
-            topic: value.topic || "General",
-            audioURL: value.audioURL,
-            imageURL: value.imageURL,
-          });
-        }
-      }
-    }
-  });
+  const normalizedSelectedLang = selectedLanguage.toLowerCase().trim();
+
+  let regex: RegExp;
+  if (
+    normalizedSelectedLang === "kurmanji" ||
+    normalizedSelectedLang === "kurdish"
+  ) {
+    regex = /\(kurmanji\)$/i;
+  } else {
+    regex = new RegExp(`_${normalizedSelectedLang}-`, "i");
+  }
+
+  const filteredKeys = Object.keys(jsonData).filter((key) => regex.test(key));
   console.log(
-    `Processed ${vocabularyItems.length} items for ${sourceLanguage}`
+    `[processVocabularyData] Quick filtered to ${filteredKeys.length} items for ${selectedLanguage} using regex: ${regex}`
+  );
+
+  filteredKeys.forEach((key) => {
+    const value = jsonData[key];
+    vocabularyItems.push({
+      id: value.id || key,
+      word: value.word || "",
+      translation: value.translation || "",
+      synonym: value.synonym || [],
+      topic: value.topic || "General",
+      audioURL: value.audioURL,
+      imageURL: value.imageURL,
+    });
+  });
+
+  console.log(
+    `[processVocabularyData] Processed ${vocabularyItems.length} items for ${selectedLanguage}`
   );
   return vocabularyItems;
 };
@@ -60,9 +66,8 @@ export const processVocabularyData = (
 export const fetchVocabularyData = async (
   languageKey: string
 ): Promise<Record<string, any>> => {
-  console.log(`fetchVocabularyData called for language: ${languageKey}`);
+  console.log("[fetchVocabularyData] called for language:", languageKey);
   if (!languageKey || languageKey === "unbekannt") {
-    console.log("No valid language key or 'unbekannt', returning empty data");
     return {};
   }
   let normalizedKey = languageKey.toLowerCase().trim();
@@ -70,7 +75,9 @@ export const fetchVocabularyData = async (
     normalizedKey = "kurmanji";
   }
   try {
-    console.log(`Fetching from: /assets/vocabulary-list-${normalizedKey}.json`);
+    console.log(
+      `[fetchVocabularyData] Fetching from: /assets/vocabulary-list-${normalizedKey}.json`
+    );
     const response = await fetch(
       `/assets/vocabulary-list-${normalizedKey}.json`,
       {
@@ -80,19 +87,16 @@ export const fetchVocabularyData = async (
     );
     if (response.ok) {
       const jsonData = await response.json();
-      console.log(`Successfully loaded vocabulary data for ${normalizedKey}`);
+      console.log(`[fetchVocabularyData] Successfully loaded data`);
       return jsonData.data || jsonData;
     } else {
       console.log(
-        `No vocabulary file found for ${normalizedKey}, returning empty data`
+        `[fetchVocabularyData] No vocabulary file found, returning empty data`
       );
       return {};
     }
   } catch (error) {
-    console.log(
-      `Error loading vocabulary for ${normalizedKey}, returning empty data:`,
-      error
-    );
+    console.log(`[fetchVocabularyData] Error loading vocabulary:`, error);
     return {};
   }
 };
@@ -100,30 +104,32 @@ export const fetchVocabularyData = async (
 export const useDebounce = <T>(value: T, delay: number): T => {
   const [debouncedValue, setDebouncedValue] = useState<T>(value);
   useEffect(() => {
-    const handler = setTimeout(() => {
+    const timer = setTimeout(() => {
       setDebouncedValue(value);
     }, delay);
     return () => {
-      clearTimeout(handler);
+      clearTimeout(timer);
     };
   }, [value, delay]);
   return debouncedValue;
 };
 
-export const useVocabulary = (languageKey: string) => {
-  console.log("useVocabulary hook called with language:", languageKey);
+export const useVocabulary = (
+  fileLanguage: string,
+  selectedLanguage: string
+) => {
   const [groupedItems, setGroupedItems] = useState<
     Record<string, VocabularyItem[]>
   >({});
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [allItems, setAllItems] = useState<VocabularyItem[]>([]);
-  const processedLanguageKey = languageKey
-    ? languageKey.toLowerCase().trim()
+  const processedFileLanguage = fileLanguage
+    ? fileLanguage.toLowerCase().trim()
     : "";
+
   useEffect(() => {
-    if (!processedLanguageKey || processedLanguageKey === "unbekannt") {
-      console.log("No valid language key, skipping data fetch");
+    if (!processedFileLanguage || processedFileLanguage === "unbekannt") {
       setGroupedItems({});
       setAllItems([]);
       setIsLoading(false);
@@ -134,12 +140,14 @@ export const useVocabulary = (languageKey: string) => {
       setIsLoading(true);
       setError(null);
       try {
-        console.log(`Loading vocabulary data for ${processedLanguageKey}`);
-        const jsonData = await fetchVocabularyData(processedLanguageKey);
+        console.log(
+          `[useVocabulary] Loading vocabulary data for ${processedFileLanguage}`
+        );
+        const jsonData = await fetchVocabularyData(processedFileLanguage);
         if (jsonData && Object.keys(jsonData).length > 0) {
           const vocabularyItems = processVocabularyData(
             jsonData,
-            processedLanguageKey
+            selectedLanguage
           );
           setAllItems(vocabularyItems);
           const grouped: Record<string, VocabularyItem[]> = {};
@@ -152,14 +160,12 @@ export const useVocabulary = (languageKey: string) => {
           });
           setGroupedItems(grouped);
           console.log(
-            `Processed ${vocabularyItems.length} vocabulary items into ${
+            `[useVocabulary] Processed ${vocabularyItems.length} items into ${
               Object.keys(grouped).length
             } topics`
           );
           if (vocabularyItems.length === 0) {
-            console.log(
-              "No vocabulary items found for the specified languages"
-            );
+            console.log("[useVocabulary] No vocabulary items found");
           }
         } else {
           setError("Keine Vokabeldaten gefunden");
@@ -168,10 +174,7 @@ export const useVocabulary = (languageKey: string) => {
         }
         setIsLoading(false);
       } catch (err: any) {
-        console.error(
-          `Error loading vocabulary for ${processedLanguageKey}:`,
-          err
-        );
+        console.error(`[useVocabulary] Error:`, err);
         setError(`Error loading vocabulary data: ${err.message}`);
         setGroupedItems({});
         setAllItems([]);
@@ -179,6 +182,6 @@ export const useVocabulary = (languageKey: string) => {
       }
     };
     loadVocabulary();
-  }, [processedLanguageKey]);
+  }, [processedFileLanguage, selectedLanguage]);
   return { groupedItems, allItems, isLoading, error };
 };

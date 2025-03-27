@@ -1,8 +1,14 @@
+// components/ContentInput.tsx
 "use client";
 import React, { useState, useEffect, useRef } from "react";
-import { useVocabulary, VocabularyItem } from "../utils/vocabularyUtils";
+import {
+  useVocabulary,
+  VocabularyItem,
+  useDebounce,
+} from "../utils/vocabularyUtils";
 import SentenceInput from "./SentenceInput";
 import ExplanationInput from "./ExplanationInput";
+import VocabularySelector from "./VocabularySelector";
 
 interface ContentInputProps {
   newText: string;
@@ -47,141 +53,40 @@ const ContentInput: React.FC<ContentInputProps> = ({
   const [isRecording, setIsRecording] = useState(false);
   const [audioURL, setAudioURL] = useState<string | null>(null);
 
-  // Refs for file inputs and media recorder
+  // Refs für File-Inputs und MediaRecorder
   const imageInputRef = useRef<HTMLInputElement>(null);
   const audioInputRef = useRef<HTMLInputElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
 
-  // Explanation text formatting
+  // Explanation text
   const [explanationTitle, setExplanationTitle] = useState("");
   const [explanationText, setExplanationText] = useState("");
 
-  // State for language selection
+  // Vokabel-spezifische Zustände (nur falls noch benötigt)
   const [vocabularyAvailable, setVocabularyAvailable] =
     useState<boolean>(false);
   const [showVocabularySelector, setShowVocabularySelector] = useState(false);
   const [selectedTopic, setSelectedTopic] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const debouncedSearchTerm = useDebounce(searchTerm, 300);
   const [targetLanguage, setTargetLanguage] = useState<string>("german");
 
-  // Normalize the language name for consistent file naming
+  // Sprache normalisieren
   const languageKey = languageName ? languageName.toLowerCase().trim() : "";
-
   console.log(
     `ContentInput: Using language key: "${languageKey}" from language name: "${languageName}"`
   );
 
-  // Check if vocabulary file exists for this language
-  useEffect(() => {
-    const checkVocabularyAvailability = async () => {
-      if (!languageKey) {
-        setVocabularyAvailable(false);
-        return;
-      }
-
-      try {
-        // Simple HEAD request to check if file exists
-        const response = await fetch(
-          `/assets/vocabulary-list-${languageKey}.json`,
-          {
-            method: "HEAD",
-          }
-        );
-
-        setVocabularyAvailable(response.ok);
-
-        if (response.ok) {
-          console.log(
-            `ContentInput: Vocabulary file for "${languageKey}" is available`
-          );
-        } else {
-          console.log(
-            `ContentInput: Vocabulary file for "${languageKey}" not available, but continuing without error`
-          );
-        }
-      } catch (error) {
-        // Don't throw errors, just mark as unavailable
-        console.log(
-          `ContentInput: Error checking vocabulary file for "${languageKey}"`
-        );
-        setVocabularyAvailable(false);
-      }
-    };
-
-    checkVocabularyAvailability();
-  }, [languageKey]);
-
-  // Load vocabulary data based on the selected language
-  const { groupedItems, isLoading, error } = useVocabulary(
-    languageKey,
-    targetLanguage
-  );
-
-  // Set vocabulary in input fields
-  const handleSelectVocabulary = (item: VocabularyItem) => {
+  // Entferne den bisherigen Vokabel-Block und setze stattdessen den neuen, wiederverwendbaren Selector ein
+  const handleSelectVocabularyFromSelector = (item: VocabularyItem) => {
     setNewText(item.word);
     setNewTranslation(item.translation);
-
-    // Set audio URL if available from vocabulary
-    if (item.audioURL) {
-      setAudioURL(item.audioURL);
-    }
-
-    // Set image preview if available from vocabulary
-    if (item.imageURL) {
-      setImagePreview(item.imageURL);
-    }
-
-    if (item.synonym && item.synonym.length > 0) {
-      // Add synonyms as examples if available
-      const currentExamples = [...newExamples];
-      item.synonym.forEach((syn) => {
-        currentExamples.push({
-          text: syn,
-          translation: item.translation,
-        });
-      });
-      // These would need to be handled in the parent component
-    }
-    setShowVocabularySelector(false);
+    if (item.audioURL) setAudioURL(item.audioURL);
+    if (item.imageURL) setImagePreview(item.imageURL);
   };
 
-  // Filter vocabulary based on search term
-  const filteredTopics =
-    searchTerm.trim() === ""
-      ? Object.keys(groupedItems)
-      : Object.keys(groupedItems).filter(
-          (topic) =>
-            topic.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            groupedItems[topic].some(
-              (item) =>
-                item.word.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                item.translation
-                  .toLowerCase()
-                  .includes(searchTerm.toLowerCase())
-            )
-        );
-
-  // Filtered items based on search term (for direct item display)
-  const filteredItems =
-    searchTerm.trim() === ""
-      ? []
-      : Object.values(groupedItems)
-          .flat()
-          .filter(
-            (item) =>
-              item.word.toLowerCase().includes(searchTerm.toLowerCase()) ||
-              item.translation
-                .toLowerCase()
-                .includes(searchTerm.toLowerCase()) ||
-              (item.synonym &&
-                item.synonym.some((syn) =>
-                  syn.toLowerCase().includes(searchTerm.toLowerCase())
-                ))
-          );
-
-  // Media handling functions
+  // Media-Handling
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
@@ -204,30 +109,23 @@ const ContentInput: React.FC<ContentInputProps> = ({
       const mediaRecorder = new MediaRecorder(stream);
       mediaRecorderRef.current = mediaRecorder;
       audioChunksRef.current = [];
-
       mediaRecorder.ondataavailable = (e) => {
         if (e.data.size > 0) {
           audioChunksRef.current.push(e.data);
         }
       };
-
       mediaRecorder.onstop = () => {
         const audioBlob = new Blob(audioChunksRef.current, {
           type: "audio/m4a",
         });
         const audioUrl = URL.createObjectURL(audioBlob);
         setAudioURL(audioUrl);
-
-        // Convert to File object
         const file = new File([audioBlob], "recorded-audio.m4a", {
           type: "audio/m4a",
         });
         setAudioFile(file);
-
-        // Stop all tracks
         stream.getTracks().forEach((track) => track.stop());
       };
-
       mediaRecorder.start();
       setIsRecording(true);
     } catch (error) {
@@ -243,6 +141,16 @@ const ContentInput: React.FC<ContentInputProps> = ({
       mediaRecorderRef.current.stop();
       setIsRecording(false);
     }
+  };
+
+  // Wrapper für onAddContent, der auch Media-States zurücksetzt
+  const handleAddContent = () => {
+    onAddContent();
+    // Reset der Media-Eingaben
+    setImagePreview(null);
+    setImageFile(null);
+    setAudioURL(null);
+    setAudioFile(null);
   };
 
   return (
@@ -289,192 +197,14 @@ const ContentInput: React.FC<ContentInputProps> = ({
         </ul>
       </div>
 
-      {/* Vocabulary Tab Content */}
+      {/* Vokabel-Tab */}
       {activeTab === "vocabulary" && (
         <>
-          {/* Language and vocabulary selection - only show if vocabulary is available */}
-          {vocabularyAvailable && (
-            <div className="mb-3">
-              <div className="flex flex-col md:flex-row gap-2 items-center mb-2">
-                <label className="text-sm font-medium text-black">
-                  Sprache: {languageName || "Nicht definiert"}
-                </label>
-
-                <select
-                  className="p-2 border rounded text-black cursor-pointer text-sm"
-                  value={targetLanguage}
-                  onChange={(e) => setTargetLanguage(e.target.value)}
-                >
-                  <option value="german">Deutsch</option>
-                  <option value="english">Englisch</option>
-                  <option value="arabic">Arabisch</option>
-                  <option value="french">Französisch</option>
-                  <option value="italian">Italienisch</option>
-                  <option value="dutch">Niederländisch</option>
-                  <option value="turkish">Türkisch</option>
-                </select>
-
-                <button
-                  className="px-3 py-1.5 bg-blue-500 text-sm text-white rounded hover:bg-blue-600 cursor-pointer"
-                  onClick={() =>
-                    setShowVocabularySelector(!showVocabularySelector)
-                  }
-                >
-                  {showVocabularySelector
-                    ? "Vokabelauswahl schließen"
-                    : "Vokabel auswählen"}
-                </button>
-              </div>
-
-              {/* Vocabulary selector */}
-              {showVocabularySelector && (
-                <div className="mt-2 p-3 border rounded bg-white">
-                  <div className="mb-3">
-                    <input
-                      type="text"
-                      className="w-full p-2 border rounded text-black"
-                      placeholder="Vokabeln durchsuchen..."
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                    />
-                  </div>
-
-                  {isLoading ? (
-                    <p className="text-black">Lade Vokabeldaten...</p>
-                  ) : error ? (
-                    <p className="text-red-500">{error}</p>
-                  ) : (
-                    <div className="max-h-48 overflow-y-auto">
-                      {/* Direct search results when searching */}
-                      {searchTerm.trim() !== "" && (
-                        <div className="mb-2">
-                          <h3 className="font-semibold text-blue-600 mb-2 text-sm">
-                            Suchergebnisse
-                          </h3>
-                          {filteredItems.length === 0 ? (
-                            <p className="text-gray-500 p-2 text-black">
-                              Keine Ergebnisse gefunden.
-                            </p>
-                          ) : (
-                            <ul className="space-y-1">
-                              {filteredItems.map((item) => (
-                                <li
-                                  key={item.id}
-                                  className="py-1 px-2 hover:bg-gray-100 cursor-pointer rounded bg-yellow-50"
-                                  onClick={() => handleSelectVocabulary(item)}
-                                >
-                                  <span className="font-medium text-black">
-                                    {item.word}
-                                  </span>{" "}
-                                  -{" "}
-                                  <span className="text-black">
-                                    {item.translation}
-                                  </span>
-                                  {item.synonym?.length > 0 && (
-                                    <div className="text-xs text-gray-500 mt-1">
-                                      Synonyme: {item.synonym.join(", ")}
-                                    </div>
-                                  )}
-                                  <div className="text-xs text-gray-600">
-                                    Kategorie: {item.topic}
-                                  </div>
-                                  {(item.audioURL || item.imageURL) && (
-                                    <div className="text-xs text-black mt-1 flex gap-2">
-                                      {item.audioURL && (
-                                        <span className="text-blue-500">
-                                          🔊 Audio verfügbar
-                                        </span>
-                                      )}
-                                      {item.imageURL && (
-                                        <span className="text-green-500">
-                                          🖼️ Bild verfügbar
-                                        </span>
-                                      )}
-                                    </div>
-                                  )}
-                                </li>
-                              ))}
-                            </ul>
-                          )}
-                        </div>
-                      )}
-
-                      {/* Always show all topics or filtered topics */}
-
-                      <>
-                        {/* If we're searching and have no direct results, show this message */}
-                        {searchTerm.trim() !== "" &&
-                          filteredItems.length === 0 &&
-                          filteredTopics.length === 0 && (
-                            <p className="text-gray-500 p-2 text-black mb-2">
-                              Keine Ergebnisse für "{searchTerm}" gefunden.
-                            </p>
-                          )}
-
-                        {/* Show all topics when not searching, or filtered topics when searching */}
-                        {(searchTerm.trim() === ""
-                          ? Object.keys(groupedItems)
-                          : filteredTopics
-                        ).map((topic) => (
-                          <div key={topic} className="mb-2">
-                            <h3
-                              className="font-semibold text-blue-600 cursor-pointer text-sm"
-                              onClick={() =>
-                                setSelectedTopic(
-                                  selectedTopic === topic ? null : topic
-                                )
-                              }
-                            >
-                              {topic} ({groupedItems[topic].length})
-                            </h3>
-
-                            {/* Always show items for the selected topic */}
-                            {selectedTopic === topic && (
-                              <ul className="ml-4 mt-1">
-                                {groupedItems[topic].map((item) => (
-                                  <li
-                                    key={item.id}
-                                    className="py-1 px-2 hover:bg-gray-100 cursor-pointer rounded text-black text-sm"
-                                    onClick={() => handleSelectVocabulary(item)}
-                                  >
-                                    <span className="font-medium">
-                                      {item.word}
-                                    </span>{" "}
-                                    - {item.translation}
-                                    {item.synonym?.length > 0 && (
-                                      <div className="text-xs text-gray-500 mt-1">
-                                        Synonyme: {item.synonym.join(", ")}
-                                      </div>
-                                    )}
-                                    {(item.audioURL || item.imageURL) && (
-                                      <div className="text-xs text-black mt-1 flex gap-2">
-                                        {item.audioURL && (
-                                          <span className="text-blue-500">
-                                            🔊 Audio verfügbar
-                                          </span>
-                                        )}
-                                        {item.imageURL && (
-                                          <span className="text-green-500">
-                                            🖼️ Bild verfügbar
-                                          </span>
-                                        )}
-                                      </div>
-                                    )}
-                                  </li>
-                                ))}
-                              </ul>
-                            )}
-                          </div>
-                        ))}
-                      </>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Input fields for vocabulary */}
+          {/* Wiederverwendbarer VocabularySelector */}
+          <VocabularySelector
+            languageName={languageName}
+            onSelect={handleSelectVocabularyFromSelector}
+          />
           <div className="flex flex-col gap-3 mb-2">
             <div className="flex flex-col md:flex-row gap-2">
               <input
@@ -492,8 +222,6 @@ const ContentInput: React.FC<ContentInputProps> = ({
                 onChange={(e) => setNewTranslation(e.target.value)}
               />
             </div>
-
-            {/* Media upload section */}
             <div className="flex flex-col md:flex-row gap-2 items-center">
               <div className="flex-1 flex gap-2">
                 <button
@@ -509,7 +237,6 @@ const ContentInput: React.FC<ContentInputProps> = ({
                   ref={imageInputRef}
                   onChange={handleImageUpload}
                 />
-
                 <button
                   className="px-3 py-1.5 bg-blue-500 text-white rounded hover:bg-blue-600"
                   onClick={() => audioInputRef.current?.click()}
@@ -523,7 +250,6 @@ const ContentInput: React.FC<ContentInputProps> = ({
                   ref={audioInputRef}
                   onChange={handleAudioUpload}
                 />
-
                 {!isRecording ? (
                   <button
                     className="px-3 py-1.5 bg-red-500 text-white rounded hover:bg-red-600"
@@ -541,8 +267,6 @@ const ContentInput: React.FC<ContentInputProps> = ({
                 )}
               </div>
             </div>
-
-            {/* Media previews */}
             <div className="flex gap-4 mt-2">
               {imagePreview && (
                 <div className="relative">
@@ -562,7 +286,6 @@ const ContentInput: React.FC<ContentInputProps> = ({
                   </button>
                 </div>
               )}
-
               {audioURL && (
                 <div className="relative">
                   <audio controls src={audioURL} className="h-10"></audio>
@@ -578,10 +301,9 @@ const ContentInput: React.FC<ContentInputProps> = ({
                 </div>
               )}
             </div>
-
             <button
               className="mt-3 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 cursor-pointer"
-              onClick={onAddContent}
+              onClick={handleAddContent}
             >
               Hinzufügen
             </button>
@@ -589,7 +311,6 @@ const ContentInput: React.FC<ContentInputProps> = ({
         </>
       )}
 
-      {/* Sentences Tab Content */}
       {activeTab === "sentences" && (
         <SentenceInput
           newExample={newExample}
@@ -603,7 +324,6 @@ const ContentInput: React.FC<ContentInputProps> = ({
         />
       )}
 
-      {/* Explanation Text Tab */}
       {activeTab === "explanation" && (
         <ExplanationInput onAddContent={onAddContent} />
       )}
