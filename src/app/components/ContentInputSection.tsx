@@ -42,8 +42,27 @@ const ContentInputSection: React.FC<ContentInputSectionProps> = ({
     setNewExamples(newExamples.filter((_, idx) => idx !== index));
   };
 
-  const handleAddContent = () => {
-    if (newText && newTranslation) {
+  // Modified to accept and use the complete content data including media URLs
+  const handleAddContent = (contentData: any) => {
+    if (contentData.text && contentData.translation) {
+      onAddContent({
+        id: "",
+        uniqueId: "",
+        text: contentData.text,
+        translation: contentData.translation,
+        examples: contentData.examples || newExamples,
+        // Include media URLs and sound file name
+        imageUrl: contentData.imageUrl,
+        audioUrl: contentData.audioUrl,
+        soundFileName: contentData.soundFileName,
+      });
+
+      // Reset form
+      setNewText("");
+      setNewTranslation("");
+      setNewExamples([]);
+    } else if (newText && newTranslation) {
+      // Fallback to direct state if contentData doesn't have text/translation
       onAddContent({
         id: "",
         uniqueId: "",
@@ -51,6 +70,7 @@ const ContentInputSection: React.FC<ContentInputSectionProps> = ({
         translation: newTranslation,
         examples: newExamples,
       });
+
       // Reset form
       setNewText("");
       setNewTranslation("");

@@ -9,6 +9,7 @@ import {
 import SentenceInput from "./SentenceInput";
 import ExplanationInput from "./ExplanationInput";
 import VocabularySelector from "./VocabularySelector";
+import { Image, Upload, Mic, MicOff, Music } from "lucide-react";
 
 interface ContentInputProps {
   newText: string;
@@ -22,7 +23,7 @@ interface ContentInputProps {
   newExamples: { text: string; translation: string }[];
   handleAddExample: () => void;
   handleRemoveExample: (index: number) => void;
-  onAddContent: () => void;
+  onAddContent: (contentData: any) => void;
   languageName: string;
 }
 
@@ -53,7 +54,11 @@ const ContentInput: React.FC<ContentInputProps> = ({
   const [isRecording, setIsRecording] = useState(false);
   const [audioURL, setAudioURL] = useState<string | null>(null);
 
-  // Refs für File-Inputs und MediaRecorder
+  // Validation states
+  const [showError, setShowError] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
+
+  // Refs for file inputs and media recorder
   const imageInputRef = useRef<HTMLInputElement>(null);
   const audioInputRef = useRef<HTMLInputElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -63,7 +68,7 @@ const ContentInput: React.FC<ContentInputProps> = ({
   const [explanationTitle, setExplanationTitle] = useState("");
   const [explanationText, setExplanationText] = useState("");
 
-  // Vokabel-spezifische Zustände (nur falls noch benötigt)
+  // Vocabulary-specific states (only if still needed)
   const [vocabularyAvailable, setVocabularyAvailable] =
     useState<boolean>(false);
   const [showVocabularySelector, setShowVocabularySelector] = useState(false);
@@ -72,21 +77,45 @@ const ContentInput: React.FC<ContentInputProps> = ({
   const debouncedSearchTerm = useDebounce(searchTerm, 300);
   const [targetLanguage, setTargetLanguage] = useState<string>("german");
 
-  // Sprache normalisieren
+  // Auto-hide error after 3 seconds
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+    if (showError) {
+      timer = setTimeout(() => {
+        setShowError(false);
+      }, 3000);
+    }
+    return () => {
+      if (timer) clearTimeout(timer);
+    };
+  }, [showError]);
+
+  // Normalize language
   const languageKey = languageName ? languageName.toLowerCase().trim() : "";
   console.log(
     `ContentInput: Using language key: "${languageKey}" from language name: "${languageName}"`
   );
 
-  // Entferne den bisherigen Vokabel-Block und setze stattdessen den neuen, wiederverwendbaren Selector ein
+  // Handle vocabulary selection
   const handleSelectVocabularyFromSelector = (item: VocabularyItem) => {
+    console.log("Selected vocabulary item:", item);
     setNewText(item.word);
     setNewTranslation(item.translation);
-    if (item.audioURL) setAudioURL(item.audioURL);
-    if (item.imageURL) setImagePreview(item.imageURL);
+
+    // Handle audio
+    if (item.audioURL) {
+      console.log("Setting audio URL:", item.audioURL);
+      setAudioURL(item.audioURL);
+    }
+
+    // Handle image
+    if (item.imageURL) {
+      console.log("Setting image URL:", item.imageURL);
+      setImagePreview(item.imageURL);
+    }
   };
 
-  // Media-Handling
+  // Media handling
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
@@ -130,9 +159,10 @@ const ContentInput: React.FC<ContentInputProps> = ({
       setIsRecording(true);
     } catch (error) {
       console.error("Error starting recording:", error);
-      alert(
+      setErrorMessage(
         "Fehler beim Starten der Aufnahme. Bitte Mikrofonzugriff erlauben."
       );
+      setShowError(true);
     }
   };
 
@@ -143,18 +173,69 @@ const ContentInput: React.FC<ContentInputProps> = ({
     }
   };
 
-  // Wrapper für onAddContent, der auch Media-States zurücksetzt
+  // Validate required fields for vocabulary tab
+  const validateVocabularyFields = () => {
+    if (!newText || newText.trim() === "") {
+      setErrorMessage("Bitte geben Sie eine Vokabel ein");
+      setShowError(true);
+      return false;
+    }
+
+    if (!newTranslation || newTranslation.trim() === "") {
+      setErrorMessage("Bitte geben Sie eine Übersetzung ein");
+      setShowError(true);
+      return false;
+    }
+
+    if (!audioURL) {
+      setErrorMessage(
+        "Bitte laden Sie eine Audio-Datei hoch oder nehmen Sie Audio auf"
+      );
+      setShowError(true);
+      return false;
+    }
+
+    return true;
+  };
+
+  // Modified to pass complete content data including media URLs
   const handleAddContent = () => {
-    onAddContent();
-    // Reset der Media-Eingaben
+    // Validate fields based on active tab
+    if (activeTab === "vocabulary" && !validateVocabularyFields()) {
+      return;
+    }
+
+    // Create and pass the complete content data
+    onAddContent({
+      text: newText,
+      translation: newTranslation,
+      examples: newExamples,
+      audioUrl: audioURL,
+      imageUrl: imagePreview,
+      soundFileName: audioFile?.name,
+      type: activeTab,
+    });
+
+    // Reset media states
     setImagePreview(null);
     setImageFile(null);
     setAudioURL(null);
     setAudioFile(null);
+
+    // Reset input fields
+    setNewText("");
+    setNewTranslation("");
   };
 
   return (
-    <div className="p-4">
+    <div className="p-4 relative">
+      {/* Error message popup */}
+      {showError && (
+        <div className="absolute top-0 left-0 right-0 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded z-10 shadow-md">
+          <span className="block sm:inline">{errorMessage}</span>
+        </div>
+      )}
+
       {/* Tab Navigation */}
       <div className="mb-4 border-b border-gray-200">
         <ul className="flex flex-wrap -mb-px text-sm font-medium text-center">
@@ -222,51 +303,58 @@ const ContentInput: React.FC<ContentInputProps> = ({
                 onChange={(e) => setNewTranslation(e.target.value)}
               />
             </div>
-            <div className="flex flex-col md:flex-row gap-2 items-center">
-              <div className="flex-1 flex gap-2">
+
+            {/* Media Buttons - New vertical layout with grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-2">
+              <button
+                className="px-3 py-2 bg-green-500 text-white rounded hover:bg-green-600 flex items-center justify-center"
+                onClick={() => imageInputRef.current?.click()}
+              >
+                <Image size={18} className="mr-2" />
+                Bild hochladen
+              </button>
+              <input
+                type="file"
+                accept="image/*"
+                className="hidden"
+                ref={imageInputRef}
+                onChange={handleImageUpload}
+              />
+
+              <button
+                className="px-3 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 flex items-center justify-center"
+                onClick={() => audioInputRef.current?.click()}
+              >
+                <Music size={18} className="mr-2" />
+                Audio hochladen
+              </button>
+              <input
+                type="file"
+                accept="audio/*"
+                className="hidden"
+                ref={audioInputRef}
+                onChange={handleAudioUpload}
+              />
+
+              {!isRecording ? (
                 <button
-                  className="px-3 py-1.5 bg-green-500 text-white rounded hover:bg-green-600"
-                  onClick={() => imageInputRef.current?.click()}
+                  className="px-3 py-2 bg-red-500 text-white rounded hover:bg-red-600 flex items-center justify-center"
+                  onClick={startRecording}
                 >
-                  Bild hochladen
+                  <Mic size={18} className="mr-2" />
+                  Audio aufnehmen
                 </button>
-                <input
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  ref={imageInputRef}
-                  onChange={handleImageUpload}
-                />
+              ) : (
                 <button
-                  className="px-3 py-1.5 bg-blue-500 text-white rounded hover:bg-blue-600"
-                  onClick={() => audioInputRef.current?.click()}
+                  className="px-3 py-2 bg-gray-500 text-white rounded hover:bg-gray-600 animate-pulse flex items-center justify-center"
+                  onClick={stopRecording}
                 >
-                  Audio hochladen
+                  <MicOff size={18} className="mr-2" />
+                  Aufnahme stoppen
                 </button>
-                <input
-                  type="file"
-                  accept="audio/*"
-                  className="hidden"
-                  ref={audioInputRef}
-                  onChange={handleAudioUpload}
-                />
-                {!isRecording ? (
-                  <button
-                    className="px-3 py-1.5 bg-red-500 text-white rounded hover:bg-red-600"
-                    onClick={startRecording}
-                  >
-                    Audio aufnehmen
-                  </button>
-                ) : (
-                  <button
-                    className="px-3 py-1.5 bg-gray-500 text-white rounded hover:bg-gray-600 animate-pulse"
-                    onClick={stopRecording}
-                  >
-                    Aufnahme stoppen
-                  </button>
-                )}
-              </div>
+              )}
             </div>
+
             <div className="flex gap-4 mt-2">
               {imagePreview && (
                 <div className="relative">

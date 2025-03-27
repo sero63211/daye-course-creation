@@ -1,5 +1,6 @@
 // components/SentenceInput.tsx
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
+import { Plus, Minus, Upload, Music, Mic, MicOff } from "lucide-react";
 
 interface SentenceInputProps {
   newExample: string;
@@ -9,7 +10,7 @@ interface SentenceInputProps {
   newExamples: { text: string; translation: string }[];
   handleAddExample: () => void;
   handleRemoveExample: (index: number) => void;
-  onAddContent: () => void;
+  onAddContent: (contentData?: any) => void;
 }
 
 const SentenceInput: React.FC<SentenceInputProps> = ({
@@ -27,10 +28,27 @@ const SentenceInput: React.FC<SentenceInputProps> = ({
   const [isRecording, setIsRecording] = useState(false);
   const [audioURL, setAudioURL] = useState<string | null>(null);
 
+  // Validation states
+  const [showError, setShowError] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
+
   // Refs for file inputs and media recorder
   const audioInputRef = useRef<HTMLInputElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
+
+  // Auto-hide error after 3 seconds
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+    if (showError) {
+      timer = setTimeout(() => {
+        setShowError(false);
+      }, 3000);
+    }
+    return () => {
+      if (timer) clearTimeout(timer);
+    };
+  }, [showError]);
 
   // Media handling functions
   const handleAudioUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -75,9 +93,10 @@ const SentenceInput: React.FC<SentenceInputProps> = ({
       setIsRecording(true);
     } catch (error) {
       console.error("Error starting recording:", error);
-      alert(
+      setErrorMessage(
         "Fehler beim Starten der Aufnahme. Bitte Mikrofonzugriff erlauben."
       );
+      setShowError(true);
     }
   };
 
@@ -88,8 +107,63 @@ const SentenceInput: React.FC<SentenceInputProps> = ({
     }
   };
 
+  // Validate required fields and show appropriate error message
+  const validateFields = () => {
+    if (!newExample || newExample.trim() === "") {
+      setErrorMessage("Bitte geben Sie einen Text ein");
+      setShowError(true);
+      return false;
+    }
+
+    if (!newExampleTranslation || newExampleTranslation.trim() === "") {
+      setErrorMessage("Bitte geben Sie eine Übersetzung ein");
+      setShowError(true);
+      return false;
+    }
+
+    if (!audioURL) {
+      setErrorMessage(
+        "Bitte laden Sie eine Audio-Datei hoch oder nehmen Sie Audio auf"
+      );
+      setShowError(true);
+      return false;
+    }
+
+    return true;
+  };
+
+  // Handle add content with audio
+  const handleAddContentWithAudio = () => {
+    if (!validateFields()) {
+      return;
+    }
+
+    onAddContent({
+      text: newExample,
+      translation: newExampleTranslation,
+      examples: newExamples,
+      audioUrl: audioURL,
+      soundFileName: audioFile?.name,
+    });
+
+    // Reset audio states
+    setAudioURL(null);
+    setAudioFile(null);
+
+    // Reset input fields
+    setNewExample("");
+    setNewExampleTranslation("");
+  };
+
   return (
-    <div className="flex flex-col gap-3 mb-2">
+    <div className="flex flex-col gap-3 mb-2 relative">
+      {/* Error message popup */}
+      {showError && (
+        <div className="absolute top-0 left-0 right-0 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded z-10 shadow-md">
+          <span className="block sm:inline">{errorMessage}</span>
+        </div>
+      )}
+
       <div className="flex flex-col md:flex-row gap-2 items-center">
         <input
           type="text"
@@ -105,30 +179,31 @@ const SentenceInput: React.FC<SentenceInputProps> = ({
           onChange={(e) => setNewExampleTranslation(e.target.value)}
           className="flex-1 p-2 border rounded bg-white text-black text-sm"
         />
-        <div className="flex gap-1">
+        <div className="flex space-x-2">
           <button
-            className="px-3 py-1.5 bg-green-500 text-white rounded hover:bg-green-600 cursor-pointer"
+            className="px-3 py-1.5 bg-green-500 text-white rounded hover:bg-green-600 cursor-pointer flex items-center"
             onClick={handleAddExample}
           >
-            +
+            <Plus size={18} />
           </button>
           {newExamples.length > 0 && (
             <button
-              className="px-3 py-1.5 bg-red-500 text-white rounded hover:bg-red-600 cursor-pointer"
+              className="px-3 py-1.5 bg-red-500 text-white rounded hover:bg-red-600 cursor-pointer flex items-center"
               onClick={() => handleRemoveExample(newExamples.length - 1)}
             >
-              -
+              <Minus size={18} />
             </button>
           )}
         </div>
       </div>
 
-      {/* Audio recording for sentences */}
-      <div className="flex gap-2 mt-2">
+      {/* Audio recording for sentences - now in grid layout */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
         <button
-          className="px-3 py-1.5 bg-blue-500 text-white rounded hover:bg-blue-600"
+          className="px-3 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 flex items-center justify-center"
           onClick={() => audioInputRef.current?.click()}
         >
+          <Music size={18} className="mr-2" />
           Audio hochladen
         </button>
         <input
@@ -141,35 +216,37 @@ const SentenceInput: React.FC<SentenceInputProps> = ({
 
         {!isRecording ? (
           <button
-            className="px-3 py-1.5 bg-red-500 text-white rounded hover:bg-red-600"
+            className="px-3 py-2 bg-red-500 text-white rounded hover:bg-red-600 flex items-center justify-center"
             onClick={startRecording}
           >
+            <Mic size={18} className="mr-2" />
             Audio aufnehmen
           </button>
         ) : (
           <button
-            className="px-3 py-1.5 bg-gray-500 text-white rounded hover:bg-gray-600 animate-pulse"
+            className="px-3 py-2 bg-gray-500 text-white rounded hover:bg-gray-600 animate-pulse flex items-center justify-center"
             onClick={stopRecording}
           >
+            <MicOff size={18} className="mr-2" />
             Aufnahme stoppen
           </button>
         )}
-
-        {audioURL && (
-          <div className="relative">
-            <audio controls src={audioURL} className="h-10"></audio>
-            <button
-              className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center"
-              onClick={() => {
-                setAudioURL(null);
-                setAudioFile(null);
-              }}
-            >
-              ×
-            </button>
-          </div>
-        )}
       </div>
+
+      {audioURL && (
+        <div className="relative mt-2">
+          <audio controls src={audioURL} className="h-10 w-full"></audio>
+          <button
+            className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center"
+            onClick={() => {
+              setAudioURL(null);
+              setAudioFile(null);
+            }}
+          >
+            ×
+          </button>
+        </div>
+      )}
 
       {newExamples.length > 0 && (
         <ul className="list-disc ml-4 mb-2">
@@ -183,7 +260,7 @@ const SentenceInput: React.FC<SentenceInputProps> = ({
 
       <button
         className="mt-3 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 cursor-pointer"
-        onClick={onAddContent}
+        onClick={handleAddContentWithAudio}
       >
         Hinzufügen
       </button>
