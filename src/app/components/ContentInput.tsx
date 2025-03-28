@@ -70,10 +70,6 @@ const ContentInput: React.FC<ContentInputProps> = ({
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
 
-  // Explanation text
-  const [explanationTitle, setExplanationTitle] = useState("");
-  const [explanationText, setExplanationText] = useState("");
-
   // Vocabulary-specific states (only if still needed)
   const [vocabularyAvailable, setVocabularyAvailable] =
     useState<boolean>(false);
@@ -284,11 +280,21 @@ const ContentInput: React.FC<ContentInputProps> = ({
   };
 
   const handleExplanationAdd = (explanationData: any) => {
+    console.log("Explanation data received:", explanationData);
+
+    // Make sure we have the correct structure that matches what CreatedContentDisplay expects
     const enhancedData = {
       ...explanationData,
+      // Ensure these fields exist and are properly named
+      text: explanationData.title || explanationData.text,
+      translation: explanationData.text || explanationData.translation,
       contentType: "information",
       type: "explanation",
+      // Generate a unique ID if needed
+      uniqueId: explanationData.uniqueId || Date.now().toString(),
     };
+
+    console.log("Enhanced explanation data:", enhancedData);
 
     if (onAddExplanation) {
       onAddExplanation(enhancedData);
@@ -299,9 +305,9 @@ const ContentInput: React.FC<ContentInputProps> = ({
 
   return (
     <div className="p-4 relative">
-      {/* Error message popup */}
+      {/* Error message popup - modified to not overlay inputs */}
       {showError && (
-        <div className="absolute top-0 left-0 right-0 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded z-10 shadow-md">
+        <div className="mb-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded z-10 shadow-md">
           <span className="block sm:inline">{errorMessage}</span>
         </div>
       )}
@@ -460,7 +466,7 @@ const ContentInput: React.FC<ContentInputProps> = ({
               )}
             </div>
             <button
-              className="mt-3 px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 cursor-pointer"
+              className="mt-3 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 cursor-pointer"
               onClick={handleAddContent}
             >
               Als Vokabel hinzufügen

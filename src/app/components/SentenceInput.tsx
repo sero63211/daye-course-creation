@@ -1,6 +1,6 @@
 // components/SentenceInput.tsx
 import React, { useState, useRef, useEffect } from "react";
-import { Plus, Minus, Upload, Music, Mic, MicOff } from "lucide-react";
+import { Plus, Minus, Upload, Music, Mic, MicOff, Image } from "lucide-react";
 
 interface SentenceInputProps {
   newExample: string;
@@ -24,6 +24,8 @@ const SentenceInput: React.FC<SentenceInputProps> = ({
   onAddContent,
 }) => {
   // Media states
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [audioFile, setAudioFile] = useState<File | null>(null);
   const [isRecording, setIsRecording] = useState(false);
   const [audioURL, setAudioURL] = useState<string | null>(null);
@@ -33,6 +35,7 @@ const SentenceInput: React.FC<SentenceInputProps> = ({
   const [errorMessage, setErrorMessage] = useState("");
 
   // Refs for file inputs and media recorder
+  const imageInputRef = useRef<HTMLInputElement>(null);
   const audioInputRef = useRef<HTMLInputElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
@@ -51,6 +54,14 @@ const SentenceInput: React.FC<SentenceInputProps> = ({
   }, [showError]);
 
   // Media handling functions
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      setImageFile(file);
+      setImagePreview(URL.createObjectURL(file));
+    }
+  };
+
   const handleAudioUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
@@ -143,10 +154,13 @@ const SentenceInput: React.FC<SentenceInputProps> = ({
       translation: newExampleTranslation,
       examples: newExamples,
       audioUrl: audioURL,
+      imageUrl: imagePreview,
       soundFileName: audioFile?.name,
     });
 
-    // Reset audio states
+    // Reset media states
+    setImagePreview(null);
+    setImageFile(null);
     setAudioURL(null);
     setAudioFile(null);
 
@@ -157,9 +171,9 @@ const SentenceInput: React.FC<SentenceInputProps> = ({
 
   return (
     <div className="flex flex-col gap-3 mb-2 relative">
-      {/* Error message popup */}
+      {/* Error message popup - positioned at the top but not overlaying inputs */}
       {showError && (
-        <div className="absolute top-0 left-0 right-0 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded z-10 shadow-md">
+        <div className="mb-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded z-10 shadow-md">
           <span className="block sm:inline">{errorMessage}</span>
         </div>
       )}
@@ -197,8 +211,23 @@ const SentenceInput: React.FC<SentenceInputProps> = ({
         </div>
       </div>
 
-      {/* Audio recording for sentences - now in grid layout */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
+      {/* Media options now including image upload - in grid layout */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-2">
+        <button
+          className="px-3 py-2 bg-green-500 text-white rounded hover:bg-green-600 flex items-center justify-center"
+          onClick={() => imageInputRef.current?.click()}
+        >
+          <Image size={18} className="mr-2" />
+          Bild hochladen
+        </button>
+        <input
+          type="file"
+          accept="image/*"
+          className="hidden"
+          ref={imageInputRef}
+          onChange={handleImageUpload}
+        />
+
         <button
           className="px-3 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 flex items-center justify-center"
           onClick={() => audioInputRef.current?.click()}
@@ -233,20 +262,42 @@ const SentenceInput: React.FC<SentenceInputProps> = ({
         )}
       </div>
 
-      {audioURL && (
-        <div className="relative mt-2">
-          <audio controls src={audioURL} className="h-10 w-full"></audio>
-          <button
-            className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center"
-            onClick={() => {
-              setAudioURL(null);
-              setAudioFile(null);
-            }}
-          >
-            ×
-          </button>
-        </div>
-      )}
+      {/* Display media previews */}
+      <div className="flex gap-4 mt-2">
+        {imagePreview && (
+          <div className="relative">
+            <img
+              src={imagePreview}
+              alt="Vorschau"
+              className="h-20 w-20 object-cover rounded border"
+            />
+            <button
+              className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center"
+              onClick={() => {
+                setImagePreview(null);
+                setImageFile(null);
+              }}
+            >
+              ×
+            </button>
+          </div>
+        )}
+
+        {audioURL && (
+          <div className="relative flex-1">
+            <audio controls src={audioURL} className="h-10 w-full"></audio>
+            <button
+              className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center"
+              onClick={() => {
+                setAudioURL(null);
+                setAudioFile(null);
+              }}
+            >
+              ×
+            </button>
+          </div>
+        )}
+      </div>
 
       {newExamples.length > 0 && (
         <ul className="list-disc ml-4 mb-2">

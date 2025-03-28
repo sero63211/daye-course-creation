@@ -2,7 +2,7 @@
 "use client";
 import React, { useState } from "react";
 import { Info, Check } from "lucide-react";
-import { StepType, LearningStep } from "../types/lessonTypes";
+import { StepType, LearningStep } from "../types/ContentTypes";
 
 interface StepEditorProps {
   step: LearningStep;
@@ -10,7 +10,7 @@ interface StepEditorProps {
   onCancel: () => void;
 }
 
-const StepEditor: React.FC<Step--EditorProps> = ({
+const StepEditor: React.FC<StepEditorProps> = ({
   step,
   onUpdate,
   onCancel,
@@ -210,36 +210,34 @@ const StepEditor: React.FC<Step--EditorProps> = ({
     </div>
   );
 };
-
 function getStepTypeName(type: StepType): string {
   switch (type) {
     case StepType.ListenVocabulary:
-      return "Vokabel hören";
+      return "Hörverständnis";
     case StepType.FillInTheBlanks:
       return "Lückentext";
     case StepType.TrueFalse:
       return "Wahr oder Falsch";
     case StepType.LanguageQuestion:
-      return "Sprachfrage";
+      return "Verständnisfrage"; // Besser für Prüfung des Sprachverständnisses
     case StepType.SentenceCompletion:
-      return "Satz vervollständigen";
+      return "Satzergänzung"; // Kürzer und präziser
     case StepType.WordOrdering:
-      return "Wörter ordnen";
+      return "Satzstellung"; // Fachbegriff aus dem Sprachunterricht
     case StepType.LessonInformation:
-      return "Lektion Information";
+      return "Lerninhalt"; // Klarer aus pädagogischer Sicht
     case StepType.LanguagePhrases:
-      return "Sprachwendungen";
+      return "Redewendungen"; // Gängiger Begriff im Sprachunterricht
     case StepType.MatchingPairs:
-      return "Paare zuordnen";
+      return "Zuordnungsübung"; // Fachbegriff im Unterricht
     case StepType.Conversation:
-      return "Konversation";
+      return "Dialogübung"; // Präziser für Sprachübungen
     case StepType.Completed:
       return "Abgeschlossen";
     case StepType.FillInChat:
-      return "Chat ergänzen";
+      return "Dialogergänzung"; // Klarer, worum es geht
     default:
       return "Unbekannter Typ";
   }
 }
-
 export default StepEditor;

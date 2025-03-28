@@ -29,7 +29,7 @@ interface StepDialogProps {
   onSave: (newStep: LearningStep) => void;
   isDisabled?: boolean;
   isSaveEnabled?: boolean;
-  initialData?: any; // Data for edit mode
+  initialData?: any;
 }
 
 const StepDialog: React.FC<StepDialogProps> = ({

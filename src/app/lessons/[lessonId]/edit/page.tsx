@@ -620,7 +620,7 @@ const ContentManagerView: React.FC<ContentManagerViewProps> = ({
         createdAt: lessonData.createdAt || new Date(),
         updatedAt: new Date(),
         learningOverview: finalOverviewModel,
-        learnedContent: learnedContent, // Add the learned content
+        learnedContent: learnedContent,
       };
 
       try {
@@ -955,6 +955,7 @@ const ContentManagerView: React.FC<ContentManagerViewProps> = ({
                     isSaving={isSaving}
                     onSave={saveLanguageLearningOverview}
                     saveError={saveError}
+                    disabled={isSaving || !hasUnsavedChanges}
                   />
                 </div>
               )}

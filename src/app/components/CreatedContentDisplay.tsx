@@ -86,10 +86,6 @@ const CreatedContentDisplay: React.FC<CreatedContentDisplayProps> = ({
           return "Vokabel";
         case "sentence":
           return "Satz";
-        case "phrase":
-          return "Phrase";
-        case "conversation":
-          return "Gespräch";
         case "information":
           return "Erklärung";
         default:
@@ -108,6 +104,14 @@ const CreatedContentDisplay: React.FC<CreatedContentDisplayProps> = ({
       default:
         return "Inhalt";
     }
+  };
+
+  // Helper function to check if item is an explanation
+  const isExplanation = (item: EnhancedContentItem) => {
+    return (
+      (item.contentType === "information" || item.type === "explanation") &&
+      !(item.contentType === "vocabulary" || item.contentType === "sentence")
+    );
   };
 
   return (
@@ -178,80 +182,65 @@ const CreatedContentDisplay: React.FC<CreatedContentDisplayProps> = ({
                   </div>
                 )}
 
-                {/* Media Controls */}
-                <div className="mt-3 space-y-3">
-                  <div className="flex flex-wrap gap-2">
-                    <button
-                      onClick={() => onImageSelect(item.uniqueId)}
-                      className="flex items-center px-3 py-1 bg-blue-100 text-blue-700 rounded-md hover:bg-blue-200 text-black"
-                    >
-                      <Upload size={16} className="mr-1" />
-                      <span>
-                        {item.imageUrl && item.imageUrl.trim() !== ""
-                          ? "Bild ändern"
-                          : "Bild hinzufügen"}
-                      </span>
-                    </button>
-
-                    <button
-                      onClick={() => onAudioSelect(item.uniqueId)}
-                      className="flex items-center px-3 py-1 bg-green-100 text-green-700 rounded-md hover:bg-green-200 text-black"
-                    >
-                      <Volume2 size={16} className="mr-1" />
-                      <span>
-                        {item.audioUrl && item.audioUrl.trim() !== ""
-                          ? "Audio ändern"
-                          : "Audio hinzufügen"}
-                      </span>
-                    </button>
-                  </div>
-
-                  {/* Bildvorschau */}
-                  {item.imageUrl && item.imageUrl.trim() !== "" && (
-                    <div className="mt-2 relative">
-                      <div className="text-xs font-medium text-black mb-1">
-                        Bildvorschau:
-                      </div>
-                      <img
-                        src={item.imageUrl}
-                        alt={item.text}
-                        className="rounded-md max-h-24 object-cover border border-gray-200"
-                      />
-                    </div>
-                  )}
-
-                  {/* Audio-Player */}
-                  {item.audioUrl && item.audioUrl.trim() !== "" && (
-                    <div className="mt-2">
-                      <div className="text-xs font-medium text-black mb-1">
-                        Audio: {item.soundFileName || "Aufnahme"}
-                      </div>
+                {/* Media Controls - Only show for vocabulary and sentences, not for explanations */}
+                {!isExplanation(item) && (
+                  <div className="mt-3 space-y-3">
+                    <div className="flex flex-wrap gap-2">
                       <button
-                        onClick={() =>
-                          onAudioPlay(item.uniqueId, item.audioUrl)
-                        }
-                        className="flex items-center px-3 py-1 bg-gray-100 rounded-md hover:bg-gray-200 text-black"
+                        onClick={() => onImageSelect(item.uniqueId)}
+                        className="flex items-center px-3 py-1 bg-blue-100 text-blue-700 rounded-md hover:bg-blue-200 text-black"
                       >
-                        {audioPlaying === item.uniqueId ? (
-                          <>
-                            <Pause size={16} className="mr-1" />
-                            <span>Pause</span>
-                          </>
-                        ) : (
-                          <>
-                            <Play size={16} className="mr-1" />
-                            <span>Abspielen</span>
-                          </>
-                        )}
+                        <Upload size={16} className="mr-1" />
+                        <span>
+                          {item.imageUrl && item.imageUrl.trim() !== ""
+                            ? "Bild ändern"
+                            : "Bild hinzufügen"}
+                        </span>
                       </button>
-                      <audio
-                        src={item.audioUrl}
-                        controls
-                        className="mt-2 w-full"
-                      />
+
+                      <button
+                        onClick={() => onAudioSelect(item.uniqueId)}
+                        className="flex items-center px-3 py-1 bg-green-100 text-green-700 rounded-md hover:bg-green-200 text-black"
+                      >
+                        <Volume2 size={16} className="mr-1" />
+                        <span>
+                          {item.audioUrl && item.audioUrl.trim() !== ""
+                            ? "Audio ändern"
+                            : "Audio hinzufügen"}
+                        </span>
+                      </button>
                     </div>
-                  )}
-                </div>
+
+                    {/* Bildvorschau */}
+                    {item.imageUrl && item.imageUrl.trim() !== "" && (
+                      <div className="mt-2 relative">
+                        <div className="text-xs font-medium text-black mb-1">
+                          Bildvorschau:
+                        </div>
+                        <img
+                          src={item.imageUrl}
+                          alt={item.text}
+                          className="rounded-md max-h-24 object-cover border border-gray-200"
+                        />
+                      </div>
+                    )}
+
+                    {/* Audio-Player */}
+                    {item.audioUrl && item.audioUrl.trim() !== "" && (
+                      <div className="mt-2">
+                        <div className="text-xs font-medium text-black mb-1">
+                          Audio: {item.soundFileName || "Aufnahme"}
+                        </div>
+
+                        <audio
+                          src={item.audioUrl}
+                          controls
+                          className="mt-2 w-full"
+                        />
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             );
           })}

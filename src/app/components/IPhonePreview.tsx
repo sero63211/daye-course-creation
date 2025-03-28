@@ -1,6 +1,15 @@
 "use client";
 import React, { useState, useEffect, useRef } from "react";
-import { Play, X, Pause, Volume2, Lightbulb } from "lucide-react";
+import {
+  Play,
+  X,
+  Pause,
+  Volume2,
+  Lightbulb,
+  Info,
+  ChevronDown,
+  ChevronUp,
+} from "lucide-react";
 import { StepType } from "../types/model";
 
 interface InfoItem {
@@ -29,6 +38,10 @@ const IPhonePreview: React.FC<IPhonePreviewProps> = ({
   const [showInfoDetails, setShowInfoDetails] = useState(false);
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
 
+  // Facts aus stepData extrahieren
+  const facts = stepData?.facts || [];
+  const hasFacts = facts.length > 0;
+
   // Default placeholder for all images
   const placeholderImage =
     "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='200' viewBox='0 0 300 200'%3E%3Crect width='300' height='200' fill='%23f0f0f0'/%3E%3Ctext x='50%25' y='50%25' font-family='Arial' font-size='16' text-anchor='middle' dominant-baseline='middle' fill='%23aaaaaa'%3EPlaceholder Image%3C/text%3E%3C/svg%3E";
@@ -52,7 +65,7 @@ const IPhonePreview: React.FC<IPhonePreviewProps> = ({
     };
   }, []);
 
-  const handleAudioPlay = (itemId: string, audioUrl: string) => {
+  const handleAudioPlay = (itemId: string, audioUrl?: string) => {
     if (audioPlaying === itemId) {
       // Stop current playback
       if (audioRef.current) {
@@ -66,10 +79,12 @@ const IPhonePreview: React.FC<IPhonePreviewProps> = ({
         audioRef.current.pause();
         audioRef.current.currentTime = 0;
       }
-      audioRef.current = new Audio(audioUrl);
-      audioRef.current.play();
-      audioRef.current.onended = () => setAudioPlaying(null);
-      setAudioPlaying(itemId);
+      if (audioUrl) {
+        audioRef.current = new Audio(audioUrl);
+        audioRef.current.play();
+        audioRef.current.onended = () => setAudioPlaying(null);
+        setAudioPlaying(itemId);
+      }
     }
   };
 
@@ -181,6 +196,27 @@ const IPhonePreview: React.FC<IPhonePreviewProps> = ({
               </button>
             ))}
           </div>
+
+          {soundFileName && (
+            <div className="flex items-center justify-center mb-4">
+              <button
+                onClick={() => handleAudioPlay("main-audio", soundFileName)}
+                className="flex items-center px-4 py-2 bg-blue-500 text-white rounded-md"
+              >
+                {audioPlaying === "main-audio" ? (
+                  <>
+                    <Pause size={18} className="mr-2" />
+                    <span>Audio stoppen</span>
+                  </>
+                ) : (
+                  <>
+                    <Volume2 size={18} className="mr-2" />
+                    <span>Audio abspielen</span>
+                  </>
+                )}
+              </button>
+            </div>
+          )}
 
           <div className="flex-grow"></div>
 
@@ -389,7 +425,7 @@ const IPhonePreview: React.FC<IPhonePreviewProps> = ({
           {soundFileName && (
             <div className="flex items-center justify-center mb-6">
               <button
-                onClick={() => handleAudioPlay("main-audio")}
+                onClick={() => handleAudioPlay("main-audio", soundFileName)}
                 className="flex items-center bg-blue-500 text-white px-4 py-2 rounded-md"
               >
                 <Volume2 size={18} className="mr-2" />
@@ -443,7 +479,6 @@ const IPhonePreview: React.FC<IPhonePreviewProps> = ({
     const soundFileName = stepData?.soundFileName || "";
     const sentenceParts: string[] = stepData?.sentenceParts || [];
     const correctAnswer = stepData?.correctAnswer || "";
-    const facts: InfoItem[] = stepData?.facts || [];
 
     // Ermittele den Index des fehlenden Wortes (falls vorhanden)
     const blankIndex = sentenceParts.findIndex(
@@ -504,7 +539,7 @@ const IPhonePreview: React.FC<IPhonePreviewProps> = ({
           {soundFileName && (
             <div className="flex items-center justify-center mb-6">
               <button
-                onClick={() => handleAudioPlay("main-audio")}
+                onClick={() => handleAudioPlay("main-audio", soundFileName)}
                 className="flex items-center bg-blue-500 text-white px-4 py-2 rounded-md"
               >
                 <Volume2 size={18} className="mr-2" />
@@ -518,21 +553,6 @@ const IPhonePreview: React.FC<IPhonePreviewProps> = ({
               {displayedSentence}
             </p>
           </div>
-
-          {facts.length > 0 && (
-            <div className="w-full bg-gray-100 rounded-xl p-4 mb-4">
-              <h2 className="text-xl font-bold text-center text-black">
-                Weitere Informationen
-              </h2>
-              <ul className="mt-2 text-center text-gray-600">
-                {facts.map((fact) => (
-                  <li key={fact.id}>
-                    <strong>{fact.term}:</strong> {fact.definition}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
         </div>
       </>
     );
@@ -666,7 +686,6 @@ const IPhonePreview: React.FC<IPhonePreviewProps> = ({
       "a-nim-ni-da.",
       "im-ni-da.",
     ];
-    const facts = stepData?.facts || [];
 
     return (
       <>
@@ -724,8 +743,20 @@ const IPhonePreview: React.FC<IPhonePreviewProps> = ({
                       {conversation.speaker?.name || "Speaker"}
                     </span>
                     {conversation.audioURL && (
-                      <button className="ml-auto text-gray-400">
-                        <Volume2 size={16} />
+                      <button
+                        className="ml-auto text-gray-400"
+                        onClick={() =>
+                          handleAudioPlay(
+                            `audio-${index}`,
+                            conversation.audioURL
+                          )
+                        }
+                      >
+                        {audioPlaying === `audio-${index}` ? (
+                          <Pause size={16} />
+                        ) : (
+                          <Volume2 size={16} />
+                        )}
                       </button>
                     )}
                   </div>
@@ -860,7 +891,6 @@ const IPhonePreview: React.FC<IPhonePreviewProps> = ({
       { id: "2", foreignText: "die Katze", nativeText: "the cat" },
       { id: "3", foreignText: "das Pferd", nativeText: "the horse" },
     ];
-    const facts = stepData?.facts || [];
 
     // Verwende die Reihenfolge, in der die Paare definiert wurden, ohne zu mischen
     const leftItems = pairs.map((pair) => ({
@@ -928,26 +958,6 @@ const IPhonePreview: React.FC<IPhonePreviewProps> = ({
               ))}
             </div>
           </div>
-
-          {facts.length > 0 && (
-            <div className="mt-2 w-full bg-gray-100 rounded-xl p-3 mb-4">
-              <h2 className="text-lg font-bold text-center text-black mb-2">
-                Weitere Informationen
-              </h2>
-              <div className="space-y-2">
-                {facts.map((fact) => (
-                  <div key={fact.id} className="text-black">
-                    <p>
-                      <strong>{fact.term}:</strong> {fact.definition}
-                    </p>
-                    {fact.usage && (
-                      <p className="text-sm">Verwendung: {fact.usage}</p>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
         </div>
       </>
     );
@@ -991,71 +1001,141 @@ const IPhonePreview: React.FC<IPhonePreviewProps> = ({
     }
   };
 
-  return (
-    <div className="pointer-events-auto" onClick={(e) => e.stopPropagation()}>
-      <div className="relative border-8 border-gray-800 rounded-3xl overflow-hidden bg-white shadow-xl w-[320px] mx-auto">
-        {/* iPhone Status Bar */}
-        <div className="bg-white px-4 py-2 flex justify-between items-center">
-          <div className="text-sm font-medium text-black">{currentTime}</div>
-          <div className="flex items-center space-x-1">
-            <div className="flex items-center space-x-1">
-              <div className="w-4 h-4">
-                {/* Wifi Icon */}
-                <svg
-                  viewBox="0 0 24 24"
-                  className="w-full h-full"
-                  fill="currentColor"
-                >
-                  <path d="M1 9l2 2c4.97-4.97 13.03-4.97 18 0l2-2C16.93 2.93 7.08 2.93 1 9zm8 8l3 3 3-3c-1.65-1.66-4.34-1.66-6 0zm-4-4l2 2c2.76-2.76 7.24-2.76 10 0l2-2C15.14 9.14 8.87 9.14 5 13z" />
-                </svg>
-              </div>
-              {/* Battery Icon */}
-              <div className="w-6 h-3 bg-black rounded-sm border border-black relative">
+  // Facts-Komponente, die unabhängig vom Step-Typ angezeigt wird
+  const renderFactsComponent = () => {
+    if (!hasFacts) return null;
+
+    return (
+      <div className="mt-4 w-full">
+        <button
+          onClick={toggleInfoDetails}
+          className="flex items-center justify-center w-full bg-blue-100 text-blue-800 rounded-t-xl p-2 border border-blue-200"
+        >
+          <Info size={18} className="mr-2" />
+          <span className="font-medium">Zusätzliche Informationen</span>
+          {showInfoDetails ? (
+            <ChevronUp size={18} className="ml-2" />
+          ) : (
+            <ChevronDown size={18} className="ml-2" />
+          )}
+        </button>
+
+        {showInfoDetails && (
+          <div className="w-full bg-blue-50 rounded-b-xl p-3 border-x border-b border-blue-200 animate-fadeIn">
+            <div className="space-y-3">
+              {facts.map((fact, idx) => (
                 <div
-                  className="absolute inset-0 bg-white m-0.5 rounded-sm"
-                  style={{ right: "25%" }}
-                ></div>
+                  key={fact.id || idx}
+                  className="p-2 bg-white rounded-lg shadow-sm"
+                >
+                  <p className="font-bold text-blue-800">{fact.term}</p>
+                  <p className="text-black">{fact.definition}</p>
+
+                  {fact.usage && (
+                    <div className="mt-1 pt-1 border-t border-gray-100">
+                      <p className="text-sm text-gray-700">
+                        <span className="font-medium">Verwendung:</span>{" "}
+                        {fact.usage}
+                      </p>
+                    </div>
+                  )}
+
+                  {fact.pronunciation && (
+                    <div className="mt-1 text-sm text-gray-700">
+                      <span className="font-medium">Aussprache:</span>{" "}
+                      {fact.pronunciation}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  // Vorschau-Container mit Facts-Button
+  const renderPreviewContainer = () => {
+    return (
+      <div className="pointer-events-auto" onClick={(e) => e.stopPropagation()}>
+        <div className="relative border-8 border-gray-800 rounded-3xl overflow-hidden bg-white shadow-xl w-[320px] mx-auto">
+          {/* iPhone Status Bar */}
+          <div className="bg-white px-4 py-2 flex justify-between items-center">
+            <div className="text-sm font-medium text-black">{currentTime}</div>
+            <div className="flex items-center space-x-1">
+              <div className="flex items-center space-x-1">
+                <div className="w-4 h-4">
+                  {/* Wifi Icon */}
+                  <svg
+                    viewBox="0 0 24 24"
+                    className="w-full h-full"
+                    fill="currentColor"
+                  >
+                    <path d="M1 9l2 2c4.97-4.97 13.03-4.97 18 0l2-2C16.93 2.93 7.08 2.93 1 9zm8 8l3 3 3-3c-1.65-1.66-4.34-1.66-6 0zm-4-4l2 2c2.76-2.76 7.24-2.76 10 0l2-2C15.14 9.14 8.87 9.14 5 13z" />
+                  </svg>
+                </div>
+                {/* Battery Icon */}
+                <div className="w-6 h-3 bg-black rounded-sm border border-black relative">
+                  <div
+                    className="absolute inset-0 bg-white m-0.5 rounded-sm"
+                    style={{ right: "25%" }}
+                  ></div>
+                </div>
               </div>
+            </div>
+          </div>
+
+          {/* Content Area - Fixed Height and Width */}
+          <div className="h-[520px] bg-white flex flex-col overflow-hidden relative">
+            {/* Rendert den Step-Inhalt */}
+            {renderStepContent()}
+
+            {/* Home Indicator - Always at the bottom */}
+            <div className="absolute bottom-0 left-0 right-0 h-6 flex justify-center items-center">
+              <div className="w-1/3 h-1 bg-black rounded-full"></div>
             </div>
           </div>
         </div>
 
-        {/* Content Area - Fixed Height and Width */}
-        <div className="h-[520px] bg-white flex flex-col overflow-hidden relative">
-          {renderStepContent()}
+        {/* Facts Button (außerhalb des iPhone-Rahmens) */}
+        {hasFacts && <div className="mt-4">{renderFactsComponent()}</div>}
 
-          {/* Home Indicator - Always at the bottom */}
-          <div className="absolute bottom-0 left-0 right-0 h-6 flex justify-center items-center">
-            <div className="w-1/3 h-1 bg-black rounded-full"></div>
-          </div>
-        </div>
-      </div>
-
-      {/* Audio Controls if audio is available */}
-      {stepData?.soundFileName && (
-        <div className="mt-4 flex justify-center">
-          <button
-            className="flex items-center bg-blue-500 text-white px-3 py-2 rounded-md"
-            onClick={() =>
-              handleAudioPlay("main-audio", stepData.soundFileName)
-            }
-          >
-            {audioPlaying === "main-audio" ? (
-              <>
-                <Pause size={18} className="mr-2" />
-                <span>Audio stoppen</span>
-              </>
-            ) : (
+        {/* Audio Controls if audio is available */}
+        {stepData?.soundFileName && !audioPlaying && (
+          <div className="mt-4 flex justify-center">
+            <button
+              className="flex items-center bg-blue-500 text-white px-3 py-2 rounded-md"
+              onClick={() =>
+                handleAudioPlay("main-audio", stepData.soundFileName)
+              }
+            >
               <>
                 <Play size={18} className="mr-2" />
                 <span>Audio abspielen</span>
               </>
-            )}
-          </button>
-        </div>
-      )}
-    </div>
-  );
+            </button>
+          </div>
+        )}
+
+        {audioPlaying && (
+          <div className="mt-4 flex justify-center">
+            <button
+              className="flex items-center bg-red-500 text-white px-3 py-2 rounded-md"
+              onClick={() => handleAudioPlay(audioPlaying)}
+            >
+              <>
+                <Pause size={18} className="mr-2" />
+                <span>Audio stoppen</span>
+              </>
+            </button>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  return renderPreviewContainer();
 };
 
 export default React.memo(IPhonePreview);

@@ -1,8 +1,8 @@
 // components/ExplanationInput.tsx
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 
 interface ExplanationInputProps {
-  onAddContent: () => void;
+  onAddContent: (contentData: any) => void;
 }
 
 const ExplanationInput: React.FC<ExplanationInputProps> = ({
@@ -10,6 +10,23 @@ const ExplanationInput: React.FC<ExplanationInputProps> = ({
 }) => {
   const [explanationTitle, setExplanationTitle] = useState("");
   const [explanationText, setExplanationText] = useState("");
+
+  // Validation states
+  const [showError, setShowError] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
+
+  // Auto-hide error after 3 seconds
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+    if (showError) {
+      timer = setTimeout(() => {
+        setShowError(false);
+      }, 3000);
+    }
+    return () => {
+      if (timer) clearTimeout(timer);
+    };
+  }, [showError]);
 
   // Text formatting functions
   const applyFormatting = (format: "bold" | "italic" | "underline") => {
@@ -58,8 +75,50 @@ const ExplanationInput: React.FC<ExplanationInputProps> = ({
     }, 0);
   };
 
+  // Validate required fields
+  const validateFields = () => {
+    if (!explanationTitle || explanationTitle.trim() === "") {
+      setErrorMessage("Bitte geben Sie einen Titel ein");
+      setShowError(true);
+      return false;
+    }
+
+    if (!explanationText || explanationText.trim() === "") {
+      setErrorMessage("Bitte geben Sie einen Erklärungstext ein");
+      setShowError(true);
+      return false;
+    }
+
+    return true;
+  };
+
+  // Handle adding explanation content
+  const handleAddExplanation = () => {
+    if (!validateFields()) {
+      return;
+    }
+
+    onAddContent({
+      title: explanationTitle,
+      text: explanationText,
+      contentType: "information",
+      type: "explanation",
+    });
+
+    // Reset fields after successful addition
+    setExplanationTitle("");
+    setExplanationText("");
+  };
+
   return (
     <div className="flex flex-col gap-3 mb-2">
+      {/* Error message that doesn't overlay inputs */}
+      {showError && (
+        <div className="mb-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded z-10 shadow-md">
+          <span className="block sm:inline">{errorMessage}</span>
+        </div>
+      )}
+
       <input
         type="text"
         className="w-full p-2 border rounded bg-white text-black text-sm"
@@ -103,7 +162,7 @@ const ExplanationInput: React.FC<ExplanationInputProps> = ({
 
       <button
         className="mt-3 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 cursor-pointer"
-        onClick={onAddContent}
+        onClick={handleAddExplanation}
       >
         Hinzufügen
       </button>

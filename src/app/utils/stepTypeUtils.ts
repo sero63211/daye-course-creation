@@ -293,10 +293,6 @@ export const getStepTypeName = (type: StepType): string => {
       return "Hörverstehen";
     case StepType.WritingExercise:
       return "Schreibübung";
-    case StepType.VideoLesson:
-      return "Videolektion";
-    case StepType.CulturalInsight:
-      return "Kultureller Einblick";
     default:
       return type;
   }
