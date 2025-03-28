@@ -8,6 +8,7 @@ interface ContentInputSectionProps {
   toggleHelp: () => void;
   onAddContent: (item: EnhancedContentItem) => void;
   languageName: string;
+  contentItems?: EnhancedContentItem[]; // Added to check for duplicates
 }
 
 const ContentInputSection: React.FC<ContentInputSectionProps> = ({
@@ -15,6 +16,7 @@ const ContentInputSection: React.FC<ContentInputSectionProps> = ({
   toggleHelp,
   onAddContent,
   languageName,
+  contentItems = [], // Default to empty array if not provided
 }) => {
   const [newText, setNewText] = useState("");
   const [newTranslation, setNewTranslation] = useState("");
@@ -23,6 +25,7 @@ const ContentInputSection: React.FC<ContentInputSectionProps> = ({
   const [newExamples, setNewExamples] = useState<
     { text: string; translation: string }[]
   >([]);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   // Check if language name is available and log it
   console.log(`ContentInputSection received language: "${languageName}"`);
@@ -42,8 +45,47 @@ const ContentInputSection: React.FC<ContentInputSectionProps> = ({
     setNewExamples(newExamples.filter((_, idx) => idx !== index));
   };
 
-  // Modified to accept and use the complete content data including media URLs
+  // Function to check if an item already exists
+  const isDuplicate = (newItem: EnhancedContentItem): boolean => {
+    return contentItems.some(
+      (item) =>
+        item.text.trim().toLowerCase() === newItem.text.trim().toLowerCase() &&
+        item.translation?.trim().toLowerCase() ===
+          newItem.translation?.trim().toLowerCase() &&
+        item.contentType === newItem.contentType
+    );
+  };
+
+  // Modified to check for duplicates before adding content
   const handleAddContent = (contentData: any) => {
+    // Create a temporary item to check for duplicates
+    const newItem: EnhancedContentItem = {
+      id: "",
+      uniqueId: "",
+      text: contentData.text || newText,
+      translation: contentData.translation || newTranslation,
+      examples: contentData.examples || newExamples,
+      imageUrl: contentData.imageUrl,
+      audioUrl: contentData.audioUrl,
+      soundFileName: contentData.soundFileName,
+      contentType: contentData.contentType || "vocabulary",
+      type: contentData.type || contentData.contentType || "vocabulary",
+    };
+
+    // Check if this is a duplicate
+    if (isDuplicate(newItem)) {
+      setErrorMessage(
+        `Dieser Inhalt existiert bereits. Bitte fügen Sie einen anderen Inhalt hinzu.`
+      );
+      // Clear error after 3 seconds
+      setTimeout(() => setErrorMessage(null), 3000);
+      return;
+    }
+
+    // Clear any previous error
+    setErrorMessage(null);
+
+    // Continue with adding the content (original logic)
     if (contentData.text && contentData.translation) {
       onAddContent({
         id: "",
@@ -51,12 +93,12 @@ const ContentInputSection: React.FC<ContentInputSectionProps> = ({
         text: contentData.text,
         translation: contentData.translation,
         examples: contentData.examples || newExamples,
-        // Include media URLs and sound file name
         imageUrl: contentData.imageUrl,
         audioUrl: contentData.audioUrl,
         soundFileName: contentData.soundFileName,
+        contentType: contentData.contentType || "vocabulary",
+        type: contentData.type || contentData.contentType || "vocabulary",
       });
-
       // Reset form
       setNewText("");
       setNewTranslation("");
@@ -69,13 +111,39 @@ const ContentInputSection: React.FC<ContentInputSectionProps> = ({
         text: newText,
         translation: newTranslation,
         examples: newExamples,
+        contentType: "vocabulary", // Default to vocabulary
+        type: "vocabulary", // For backward compatibility
       });
-
       // Reset form
       setNewText("");
       setNewTranslation("");
       setNewExamples([]);
     }
+  };
+
+  // Add specific handlers for different content types
+  const handleAddVocabulary = (contentData: any) => {
+    handleAddContent({
+      ...contentData,
+      contentType: "vocabulary",
+      type: "vocabulary",
+    });
+  };
+
+  const handleAddSentence = (contentData: any) => {
+    handleAddContent({
+      ...contentData,
+      contentType: "sentence",
+      type: "sentence",
+    });
+  };
+
+  const handleAddExplanation = (contentData: any) => {
+    handleAddContent({
+      ...contentData,
+      contentType: "information",
+      type: "explanation",
+    });
   };
 
   return (
@@ -84,6 +152,13 @@ const ContentInputSection: React.FC<ContentInputSectionProps> = ({
         <h2 className="text-xl font-bold text-black">1. Inhalte hinzufügen</h2>
         <HelpToggle showHelp={showHelp} toggleHelp={toggleHelp} />
       </div>
+
+      {/* Error message for duplicates */}
+      {errorMessage && (
+        <div className="mx-4 mt-4 p-3 bg-red-50 border-l-4 border-red-500 rounded">
+          <p className="text-sm text-red-700">{errorMessage}</p>
+        </div>
+      )}
 
       {showHelp && (
         <div className="mx-4 mt-4 p-3 bg-blue-50 border-l-4 border-blue-500 rounded">
@@ -96,7 +171,6 @@ const ContentInputSection: React.FC<ContentInputSectionProps> = ({
           </p>
         </div>
       )}
-
       <ContentInput
         newText={newText}
         setNewText={setNewText}
@@ -110,6 +184,9 @@ const ContentInputSection: React.FC<ContentInputSectionProps> = ({
         handleAddExample={handleAddExample}
         handleRemoveExample={handleRemoveExample}
         onAddContent={handleAddContent}
+        onAddVocabulary={handleAddVocabulary}
+        onAddSentence={handleAddSentence}
+        onAddExplanation={handleAddExplanation}
         languageName={languageName}
       />
     </div>

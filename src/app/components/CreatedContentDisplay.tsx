@@ -21,7 +21,22 @@ const CreatedContentDisplay: React.FC<CreatedContentDisplayProps> = ({
   onAudioPlay,
 }) => {
   // Helper functions for styling based on content type
-  const getBorderColorByType = (type?: string) => {
+  const getBorderColorByType = (type?: string, contentType?: string) => {
+    // First check the specific contentType
+    if (contentType) {
+      switch (contentType) {
+        case "vocabulary":
+          return "border-green-200";
+        case "sentence":
+          return "border-blue-200";
+        case "information":
+          return "border-purple-200";
+        default:
+          break;
+      }
+    }
+
+    // Fall back to type if contentType is not set
     switch (type) {
       case "vocabulary":
         return "border-green-200";
@@ -34,7 +49,22 @@ const CreatedContentDisplay: React.FC<CreatedContentDisplayProps> = ({
     }
   };
 
-  const getTagColorByType = (type?: string) => {
+  const getTagColorByType = (type?: string, contentType?: string) => {
+    // First check the specific contentType
+    if (contentType) {
+      switch (contentType) {
+        case "vocabulary":
+          return "bg-green-100 text-green-800";
+        case "sentence":
+          return "bg-blue-100 text-blue-800";
+        case "information":
+          return "bg-purple-100 text-purple-800";
+        default:
+          break;
+      }
+    }
+
+    // Fall back to type if contentType is not set
     switch (type) {
       case "vocabulary":
         return "bg-green-100 text-green-800";
@@ -48,7 +78,26 @@ const CreatedContentDisplay: React.FC<CreatedContentDisplayProps> = ({
   };
 
   // Get display name for content type
-  const getContentTypeDisplayName = (type?: string) => {
+  const getContentTypeDisplayName = (type?: string, contentType?: string) => {
+    // First check the specific contentType
+    if (contentType) {
+      switch (contentType) {
+        case "vocabulary":
+          return "Vokabel";
+        case "sentence":
+          return "Satz";
+        case "phrase":
+          return "Phrase";
+        case "conversation":
+          return "Gespräch";
+        case "information":
+          return "Erklärung";
+        default:
+          break;
+      }
+    }
+
+    // Fall back to type if contentType is not set
     switch (type) {
       case "vocabulary":
         return "Vokabel";
@@ -82,7 +131,8 @@ const CreatedContentDisplay: React.FC<CreatedContentDisplayProps> = ({
               <div
                 key={item.uniqueId}
                 className={`border ${getBorderColorByType(
-                  item.type
+                  item.type,
+                  item.contentType
                 )} rounded-lg p-4 hover:shadow-sm transition-shadow`}
               >
                 <div className="flex justify-between">
@@ -90,10 +140,11 @@ const CreatedContentDisplay: React.FC<CreatedContentDisplayProps> = ({
                     <div className="flex items-center">
                       <span
                         className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${getTagColorByType(
-                          item.type
+                          item.type,
+                          item.contentType
                         )} mr-2`}
                       >
-                        {getContentTypeDisplayName(item.type)}
+                        {getContentTypeDisplayName(item.type, item.contentType)}
                       </span>
                       <h3 className="font-medium text-lg text-black">
                         {item.text}

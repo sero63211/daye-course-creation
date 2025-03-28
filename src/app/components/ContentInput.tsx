@@ -24,6 +24,9 @@ interface ContentInputProps {
   handleAddExample: () => void;
   handleRemoveExample: (index: number) => void;
   onAddContent: (contentData: any) => void;
+  onAddVocabulary?: (contentData: any) => void;
+  onAddSentence?: (contentData: any) => void;
+  onAddExplanation?: (contentData: any) => void;
   languageName: string;
 }
 
@@ -40,6 +43,9 @@ const ContentInput: React.FC<ContentInputProps> = ({
   handleAddExample,
   handleRemoveExample,
   onAddContent,
+  onAddVocabulary,
+  onAddSentence,
+  onAddExplanation,
   languageName,
 }) => {
   // Tab state
@@ -198,23 +204,58 @@ const ContentInput: React.FC<ContentInputProps> = ({
     return true;
   };
 
-  // Modified to pass complete content data including media URLs
+  // Modified to pass complete content data including media URLs and correct content types
   const handleAddContent = () => {
     // Validate fields based on active tab
     if (activeTab === "vocabulary" && !validateVocabularyFields()) {
       return;
     }
 
-    // Create and pass the complete content data
-    onAddContent({
+    // Map tab types to correct content types
+    let contentType: string;
+    let type: string;
+
+    switch (activeTab) {
+      case "vocabulary":
+        contentType = "vocabulary";
+        type = "vocabulary";
+        break;
+      case "sentences":
+        contentType = "sentence";
+        type = "sentence";
+        break;
+      case "explanation":
+        contentType = "information";
+        type = "explanation";
+        break;
+      default:
+        contentType = "vocabulary";
+        type = "vocabulary";
+    }
+
+    // Create the content data object with both type and contentType
+    const contentData = {
       text: newText,
       translation: newTranslation,
       examples: newExamples,
       audioUrl: audioURL,
       imageUrl: imagePreview,
       soundFileName: audioFile?.name,
-      type: activeTab,
-    });
+      contentType: contentType, // Add the new contentType property
+      type: type, // Keep the original type for backward compatibility
+    };
+
+    // Use the specific handlers if available, otherwise fallback to the general handler
+    if (activeTab === "vocabulary" && onAddVocabulary) {
+      onAddVocabulary(contentData);
+    } else if (activeTab === "sentences" && onAddSentence) {
+      onAddSentence(contentData);
+    } else if (activeTab === "explanation" && onAddExplanation) {
+      onAddExplanation(contentData);
+    } else {
+      // Fallback to the general handler
+      onAddContent(contentData);
+    }
 
     // Reset media states
     setImagePreview(null);
@@ -225,6 +266,35 @@ const ContentInput: React.FC<ContentInputProps> = ({
     // Reset input fields
     setNewText("");
     setNewTranslation("");
+  };
+
+  // Update tab handlers for SentenceInput and ExplanationInput
+  const handleSentenceAdd = (sentenceData: any) => {
+    const enhancedData = {
+      ...sentenceData,
+      contentType: "sentence",
+      type: "sentence",
+    };
+
+    if (onAddSentence) {
+      onAddSentence(enhancedData);
+    } else {
+      onAddContent(enhancedData);
+    }
+  };
+
+  const handleExplanationAdd = (explanationData: any) => {
+    const enhancedData = {
+      ...explanationData,
+      contentType: "information",
+      type: "explanation",
+    };
+
+    if (onAddExplanation) {
+      onAddExplanation(enhancedData);
+    } else {
+      onAddContent(enhancedData);
+    }
   };
 
   return (
@@ -390,10 +460,10 @@ const ContentInput: React.FC<ContentInputProps> = ({
               )}
             </div>
             <button
-              className="mt-3 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 cursor-pointer"
+              className="mt-3 px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 cursor-pointer"
               onClick={handleAddContent}
             >
-              Hinzufügen
+              Als Vokabel hinzufügen
             </button>
           </div>
         </>
@@ -408,12 +478,12 @@ const ContentInput: React.FC<ContentInputProps> = ({
           newExamples={newExamples}
           handleAddExample={handleAddExample}
           handleRemoveExample={handleRemoveExample}
-          onAddContent={onAddContent}
+          onAddContent={handleSentenceAdd}
         />
       )}
 
       {activeTab === "explanation" && (
-        <ExplanationInput onAddContent={onAddContent} />
+        <ExplanationInput onAddContent={handleExplanationAdd} />
       )}
     </div>
   );

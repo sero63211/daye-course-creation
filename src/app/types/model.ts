@@ -39,6 +39,20 @@ export enum DifficultyLevel {
 /**
  * Model representing a single lesson
  */
+export interface LearningContentItem {
+  id: string;
+  uniqueId: string;
+  text: string;
+  translation?: string;
+  type: "vocabulary" | "sentence";
+  imageUrl?: string;
+  audioUrl?: string;
+  soundFileName?: string;
+  examples?: {
+    text: string;
+    translation: string;
+  }[];
+}
 export interface LessonModel {
   id: string;
   type: LessonType;
@@ -48,10 +62,11 @@ export interface LessonModel {
   imageName: string;
   duration: string;
   category: string;
-  difficulty?: DifficultyLevel; // Added difficulty level
-  createdAt?: Date; // Lesson creation date
-  updatedAt?: Date; // Last update date
+  difficulty?: DifficultyLevel;
+  createdAt?: Date;
+  updatedAt?: Date;
   learningOverview: LanguageLearningOverviewModel;
+  learnedContent?: LearningContentItem[]; // New field to store vocabulary and sentences
 }
 
 /**

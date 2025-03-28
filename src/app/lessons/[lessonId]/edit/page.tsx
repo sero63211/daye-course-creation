@@ -11,10 +11,12 @@ import {
   DifficultyLevel,
   CourseModel,
   Chapter,
+  LearningContentItem,
 } from "../../../types/model";
 import StepDialog from "../../../components/StepDialog";
 import lessonService from "../../../services/LessonService";
 import { CourseService } from "../../../services/CourseService";
+import { Save } from "lucide-react"; // Import the Save icon
 
 // Import component files
 import ContentInputSection from "../../../components/ContentInputSection";
@@ -108,6 +110,12 @@ const ContentManagerView: React.FC<ContentManagerViewProps> = ({
   const [showHelp, setShowHelp] = useState(false);
   const [needsCourseData, setNeedsCourseData] = useState(false);
 
+  // State to track changes
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState<boolean>(false);
+  const [lastSavedContentItems, setLastSavedContentItems] = useState<
+    EnhancedContentItem[]
+  >([]);
+
   // Media handling
   const [audioPlaying, setAudioPlaying] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -134,6 +142,7 @@ const ContentManagerView: React.FC<ContentManagerViewProps> = ({
       }
     }
   }, [courseModel]);
+
   useEffect(() => {
     const fetchCourseData = async () => {
       if (urlCourseId) {
@@ -178,10 +187,12 @@ const ContentManagerView: React.FC<ContentManagerViewProps> = ({
 
     fetchCourseData();
   }, [urlCourseId]);
+
   // 4. Log language changes for debugging
   useEffect(() => {
     console.log(`Current language name: ${languageName}`);
   }, [languageName]);
+
   useEffect(() => {
     // Check if we have a course with a valid language
     if (
@@ -233,6 +244,20 @@ const ContentManagerView: React.FC<ContentManagerViewProps> = ({
 
         setLearningOverviewModel(loadedLesson.learningOverview);
 
+        // Initialize contentItems from learnedContent if it exists
+        if (
+          loadedLesson.learnedContent &&
+          loadedLesson.learnedContent.length > 0
+        ) {
+          const initialContent = loadedLesson.learnedContent.map((item) => ({
+            ...item,
+            uniqueId: item.uniqueId || uuid(),
+            contentType: item.type,
+          }));
+          setContentItems(initialContent);
+          setLastSavedContentItems(initialContent);
+        }
+
         // Find chapter if we have course data
         if (courseData) {
           console.log("Looking for lesson in course chapters");
@@ -276,6 +301,7 @@ const ContentManagerView: React.FC<ContentManagerViewProps> = ({
               learningSteps: [],
               title: "Neue Lektion",
             },
+            learnedContent: [], // Initialize empty array for learnedContent
           };
 
           setLessonData(newLesson);
@@ -304,6 +330,33 @@ const ContentManagerView: React.FC<ContentManagerViewProps> = ({
       setPreviewStep(null);
     }
   }, [selectedSteps, previewStep]);
+
+  // Effect to check for unsaved changes
+  useEffect(() => {
+    // Check if content items have changed from last saved state
+    const contentItemsChanged =
+      JSON.stringify(contentItems) !== JSON.stringify(lastSavedContentItems);
+
+    // Check if selected steps have changed
+    const stepsChanged =
+      learningOverviewModel?.learningSteps &&
+      JSON.stringify(learningOverviewModel.learningSteps) !==
+        JSON.stringify(selectedSteps);
+
+    // Check if lesson data has changed (basic check, can be expanded)
+    const lessonDataChanged =
+      lessonData?.title !== learningOverviewModel?.title;
+
+    setHasUnsavedChanges(
+      contentItemsChanged || stepsChanged || lessonDataChanged
+    );
+  }, [
+    contentItems,
+    selectedSteps,
+    lessonData,
+    learningOverviewModel,
+    lastSavedContentItems,
+  ]);
 
   // Media handling methods
   const handleImageSelect = (itemId: string) => {
@@ -364,10 +417,12 @@ const ContentManagerView: React.FC<ContentManagerViewProps> = ({
         uniqueId: newItem.uniqueId || uuid(),
       },
     ]);
+    setHasUnsavedChanges(true);
   };
 
   const removeContentItem = (uniqueId: string) => {
     setContentItems(contentItems.filter((item) => item.uniqueId !== uniqueId));
+    setHasUnsavedChanges(true);
   };
 
   const updateContentItemMedia = (
@@ -379,6 +434,7 @@ const ContentManagerView: React.FC<ContentManagerViewProps> = ({
         item.uniqueId === uniqueId ? { ...item, ...mediaData } : item
       )
     );
+    setHasUnsavedChanges(true);
   };
 
   // Exercise management methods
@@ -445,6 +501,7 @@ const ContentManagerView: React.FC<ContentManagerViewProps> = ({
 
     if (onStepsGenerated) onStepsGenerated(updated);
     closeStepDialog();
+    setHasUnsavedChanges(true);
   };
 
   const closeStepDialog = () => {
@@ -483,6 +540,7 @@ const ContentManagerView: React.FC<ContentManagerViewProps> = ({
 
     setSelectedSteps(updatedSteps);
     if (onStepsGenerated) onStepsGenerated(updatedSteps);
+    setHasUnsavedChanges(true);
   };
 
   const deleteStep = (stepId: string) => {
@@ -494,6 +552,7 @@ const ContentManagerView: React.FC<ContentManagerViewProps> = ({
     }
 
     if (onStepsGenerated) onStepsGenerated(updatedSteps);
+    setHasUnsavedChanges(true);
   };
 
   // Handle course navigation
@@ -523,6 +582,24 @@ const ContentManagerView: React.FC<ContentManagerViewProps> = ({
         throw new Error("Lesson data is null. Cannot save.");
       }
 
+      // Filter content items to only include vocabulary and sentences
+      const learnedContent: LearningContentItem[] = contentItems
+        .filter(
+          (item) =>
+            item.contentType === "vocabulary" || item.contentType === "sentence"
+        )
+        .map((item) => ({
+          id: item.id,
+          uniqueId: item.uniqueId,
+          text: item.text,
+          translation: item.translation,
+          type: item.contentType as "vocabulary" | "sentence",
+          imageUrl: item.imageUrl,
+          audioUrl: item.audioUrl,
+          soundFileName: item.soundFileName,
+          examples: item.examples,
+        }));
+
       const finalOverviewModel: LanguageLearningOverviewModel = {
         lessonId: internalLessonId,
         learningSteps: selectedSteps,
@@ -543,6 +620,7 @@ const ContentManagerView: React.FC<ContentManagerViewProps> = ({
         createdAt: lessonData.createdAt || new Date(),
         updatedAt: new Date(),
         learningOverview: finalOverviewModel,
+        learnedContent: learnedContent, // Add the learned content
       };
 
       try {
@@ -614,7 +692,9 @@ const ContentManagerView: React.FC<ContentManagerViewProps> = ({
         onStepsGenerated(selectedSteps);
       }
 
-      alert("Lektion erfolgreich gespeichert!");
+      // Update the lastSavedContentItems state when save is successful
+      setLastSavedContentItems([...contentItems]);
+      setHasUnsavedChanges(false);
 
       return { lesson: lessonToSave, course: courseData };
     } catch (error) {
@@ -622,7 +702,6 @@ const ContentManagerView: React.FC<ContentManagerViewProps> = ({
       const errorMessage =
         error instanceof Error ? error.message : String(error);
       setSaveError("Fehler beim Speichern: " + errorMessage);
-      alert("Fehler beim Speichern der Lektion: " + errorMessage);
 
       return null;
     } finally {
@@ -766,14 +845,28 @@ const ContentManagerView: React.FC<ContentManagerViewProps> = ({
                 </p>
               )}
             </div>
-            {courseData && (
+            <div className="flex space-x-2">
               <button
-                onClick={navigateToCoursePage}
-                className="px-3 py-1 text-sm bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
+                onClick={saveLanguageLearningOverview}
+                disabled={isSaving || !hasUnsavedChanges}
+                className={`px-3 py-1 rounded flex items-center ${
+                  hasUnsavedChanges
+                    ? "bg-green-500 text-white hover:bg-green-600"
+                    : "bg-gray-300 text-gray-500 cursor-not-allowed"
+                }`}
               >
-                Zurück zum Kurs
+                <Save size={16} className="mr-1" />
+                {isSaving ? "Speichern..." : "Speichern"}
               </button>
-            )}
+              {courseData && (
+                <button
+                  onClick={navigateToCoursePage}
+                  className="px-3 py-1 text-sm bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
+                >
+                  Zurück zum Kurs
+                </button>
+              )}
+            </div>
           </div>
 
           {/* Language warning if needed */}
@@ -796,6 +889,7 @@ const ContentManagerView: React.FC<ContentManagerViewProps> = ({
                   toggleHelp={() => setShowHelp(!showHelp)}
                   onAddContent={addContentItem}
                   languageName={languageName}
+                  contentItems={contentItems}
                 />
               </div>
               <div className="flex-none">

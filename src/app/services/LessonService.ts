@@ -18,6 +18,7 @@ import {
   LearningStep,
   LessonType,
   DifficultyLevel,
+  LearningContentItem,
 } from "../types/model";
 import { v4 as uuidv4 } from "uuid";
 
@@ -52,12 +53,74 @@ const fillMissingLessonAttributes = (
     difficulty: lesson.difficulty || DifficultyLevel.Beginner,
     createdAt: lesson.createdAt || new Date(),
     updatedAt: lesson.updatedAt || new Date(),
+    learnedContent: lesson.learnedContent || [], // Include the learned content
     learningOverview: lesson.learningOverview || {
       lessonId: lesson.id || uuidv4(),
       learningSteps: [],
       title: lesson.title || "Untitled Lesson",
     },
   };
+};
+
+/**
+ * Helper function to deeply clean undefined values from objects and arrays
+ * This will recursively go through all properties and nested objects/arrays
+ */
+const deepCleanUndefined = (obj: any): any => {
+  if (obj === undefined) return null;
+  if (obj === null) return null;
+  if (typeof obj !== "object") return obj; // Return primitives as is
+
+  if (Array.isArray(obj)) {
+    // Handle arrays - map each item and filter out nulls
+    return obj
+      .map((item) => deepCleanUndefined(item))
+      .filter((item) => item !== null);
+  }
+
+  // Handle objects - process each property
+  const cleaned: any = {};
+  for (const key in obj) {
+    if (Object.prototype.hasOwnProperty.call(obj, key)) {
+      const cleanedValue = deepCleanUndefined(obj[key]);
+      if (cleanedValue !== null) {
+        cleaned[key] = cleanedValue;
+      }
+    }
+  }
+  return cleaned;
+};
+
+/**
+ * Helper function to clean learned content items
+ */
+const cleanLearnedContent = (
+  learnedContent: LearningContentItem[] | undefined
+): LearningContentItem[] => {
+  if (!learnedContent || !Array.isArray(learnedContent)) {
+    return [];
+  }
+
+  return learnedContent.map((item) => {
+    // Ensure all required fields have values and replace undefined with null or empty values
+    return {
+      id: item.id || "",
+      uniqueId: item.uniqueId || "",
+      text: item.text || "",
+      translation: item.translation || "",
+      type: item.type || "vocabulary",
+      // Optional fields - convert undefined to null (Firestore accepts null but not undefined)
+      imageUrl: item.imageUrl || null,
+      audioUrl: item.audioUrl || null,
+      soundFileName: item.soundFileName || null,
+      examples: Array.isArray(item.examples)
+        ? item.examples.map((example) => ({
+            text: example.text || "",
+            translation: example.translation || "",
+          }))
+        : [],
+    };
+  });
 };
 
 /**
@@ -118,6 +181,11 @@ class LessonService {
 
       console.log("Updating lesson with ID:", lesson.id);
 
+      // Clean learnedContent to ensure no undefined values
+      if (lesson.learnedContent) {
+        lesson.learnedContent = cleanLearnedContent(lesson.learnedContent);
+      }
+
       // Prüfe zuerst, ob die Lektion existiert
       const docRef = doc(db, "lessons", lesson.id);
       const docSnap = await getDoc(docRef);
@@ -141,18 +209,11 @@ class LessonService {
         lesson.learningOverview.lessonId = lesson.id;
       }
 
-      // Remove undefined values
-      const validLessonData = Object.entries(lesson).reduce(
-        (acc, [key, value]) => {
-          if (value !== undefined) {
-            acc[key] = value;
-          }
-          return acc;
-        },
-        {} as Partial<LessonModel>
-      );
+      // Clean the entire object to remove any undefined values (including in nested objects)
+      const cleanedLesson = deepCleanUndefined(lesson);
 
-      await updateDoc(lessonRef, validLessonData);
+      // Now we can safely update
+      await updateDoc(lessonRef, cleanedLesson);
 
       console.log(`Lesson with ID ${lesson.id} updated successfully.`);
     } catch (error) {
@@ -173,11 +234,15 @@ class LessonService {
         const uniqueId = uuidv4();
         const category = lesson.category || "general";
         const type = lesson.type || "exercise";
-
         lesson.id = `${category}_${type}_${uniqueId}`;
         console.log("Generated new lesson ID:", lesson.id);
       } else {
         console.log("Using provided lesson ID:", lesson.id);
+      }
+
+      // Clean learnedContent to ensure no undefined values
+      if (lesson.learnedContent) {
+        lesson.learnedContent = cleanLearnedContent(lesson.learnedContent);
       }
 
       // Ensure the learning overview has the lessonId set
@@ -201,11 +266,13 @@ class LessonService {
       filledLesson.createdAt = new Date();
       filledLesson.updatedAt = new Date();
 
+      // Clean the entire object to remove any undefined values (including in nested objects)
+      const cleanedLesson = deepCleanUndefined(filledLesson);
+
       // Save the lesson document
-      await setDoc(lessonRef, filledLesson);
+      await setDoc(lessonRef, cleanedLesson);
 
       console.log(`Lesson with ID ${filledLesson.id} created successfully.`);
-
       return filledLesson;
     } catch (error) {
       console.error("Error creating lesson:", error);
@@ -302,9 +369,14 @@ class LessonService {
         lessonData.learningOverview.learningSteps = learningSteps;
       }
 
+      // Clean the learning steps to remove any undefined values
+      const cleanedLearningOverview = deepCleanUndefined(
+        lessonData.learningOverview
+      );
+
       // Update the lesson document
       await updateDoc(lessonRef, {
-        learningOverview: lessonData.learningOverview,
+        learningOverview: cleanedLearningOverview,
         updatedAt: new Date(),
       });
 
