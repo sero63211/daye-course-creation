@@ -1,9 +1,12 @@
+// 1. FillInTheBlanksStepDialog.tsx - Modified Version
+
 "use client";
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import { Upload, Trash2, Volume2, CheckCircle2, X, Plus } from "lucide-react";
 import IPhonePreview from "./IPhonePreview";
 import { StepType } from "../types/model";
 import { v4 as uuid } from "uuid";
+import ContentItemSelector from "./vocabulary-components/ContentItemSelector";
 
 interface InfoItem {
   id: string;
@@ -27,11 +30,20 @@ interface FillInTheBlanksModel {
 interface FillInTheBlanksStepDialogProps {
   dialogData: any;
   setDialogData: (data: any) => void;
+  contentItems?: {
+    id: string;
+    text: string;
+    translation?: string;
+    examples?: any[];
+    imageUrl?: string;
+    audioUrl?: string;
+  }[];
 }
 
 const FillInTheBlanksStepDialog: React.FC<FillInTheBlanksStepDialogProps> = ({
   dialogData,
   setDialogData,
+  contentItems = [],
 }) => {
   // Lokaler State für alle Felder
   const [sentence, setSentence] = useState<string>(dialogData.question || "");
@@ -63,6 +75,46 @@ const FillInTheBlanksStepDialog: React.FC<FillInTheBlanksStepDialogProps> = ({
     usage: "",
     pronunciation: "",
   });
+
+  // State for ContentItemSelector
+  const [orderedItems, setOrderedItems] = useState<any[]>([]);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [processingStatus, setProcessingStatus] = useState({
+    isProcessing: false,
+    message: "",
+  });
+
+  // Process content items once
+  useEffect(() => {
+    if (contentItems.length === 0) return;
+
+    const processed = contentItems.map((item) => ({
+      id: item.id,
+      text: item.text || "",
+      translation: item.translation || "",
+      _examples: item.examples,
+      imageUrl: item.imageUrl,
+      audioUrl: item.audioUrl,
+    }));
+
+    setOrderedItems(processed);
+  }, [contentItems]);
+
+  // Update form when selection changes
+  useEffect(() => {
+    if (selectedIds.length === 0) return;
+
+    const selectedItem = orderedItems.find(
+      (item) => item.id === selectedIds[0]
+    );
+    if (!selectedItem) return;
+
+    setSentence(selectedItem.text || "");
+    setTranslation(selectedItem.translation || "");
+    setImageUrl(selectedItem.imageUrl || "");
+    setSoundFileName(selectedItem.audioUrl || "");
+    setBlankWord(null); // Reset blank word when selecting new sentence
+  }, [selectedIds, orderedItems]);
 
   // Refs für Datei-Uploads
   const imageInputRef = useRef<HTMLInputElement>(null);
@@ -230,6 +282,8 @@ const FillInTheBlanksStepDialog: React.FC<FillInTheBlanksStepDialogProps> = ({
     <div className="flex flex-col md:flex-row gap-6">
       {/* Linke Seite: Konfiguration */}
       <div className="w-full md:w-3/5 space-y-6 bg-white p-4 rounded-lg">
+        {/* Content selector */}
+
         <div className="space-y-4">
           <div>
             <label className="block text-black mb-2" htmlFor="sentence">

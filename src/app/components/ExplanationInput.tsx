@@ -102,7 +102,7 @@ const ExplanationInput: React.FC<ExplanationInputProps> = ({
       title: explanationTitle,
       text: explanationText,
       contentType: "information",
-      type: "explanation",
+      type: "information",
     });
 
     // Reset fields after successful addition

@@ -1,15 +1,11 @@
 // components/ContentInput.tsx
 "use client";
 import React, { useState, useEffect, useRef } from "react";
-import {
-  useVocabulary,
-  VocabularyItem,
-  useDebounce,
-} from "../utils/vocabularyUtils";
+import { VocabularyItem, useDebounce } from "../utils/vocabularyUtils";
 import SentenceInput from "./SentenceInput";
 import ExplanationInput from "./ExplanationInput";
 import VocabularySelector from "./VocabularySelector";
-import { Image, Upload, Mic, MicOff, Music } from "lucide-react";
+import { Image, Mic, MicOff, Music } from "lucide-react";
 
 interface ContentInputProps {
   newText: string;
@@ -50,7 +46,7 @@ const ContentInput: React.FC<ContentInputProps> = ({
 }) => {
   // Tab state
   const [activeTab, setActiveTab] = useState<
-    "vocabulary" | "sentences" | "explanation"
+    "vocabulary" | "sentences" | "information"
   >("vocabulary");
 
   // Media states
@@ -93,10 +89,16 @@ const ContentInput: React.FC<ContentInputProps> = ({
   }, [showError]);
 
   // Normalize language
-  const languageKey = languageName ? languageName.toLowerCase().trim() : "";
-  console.log(
-    `ContentInput: Using language key: "${languageKey}" from language name: "${languageName}"`
-  );
+  useEffect(() => {
+    // Only log language once when it changes
+    const languageKey = languageName ? languageName.toLowerCase().trim() : "";
+    console.log(
+      `ContentInput: Using language key: "${languageKey}" from language name: "${languageName}"`
+    );
+
+    // You can store it in state if needed
+    // setStoredLanguageKey(languageKey);
+  }, [languageName]);
 
   // Handle vocabulary selection
   const handleSelectVocabularyFromSelector = (item: VocabularyItem) => {
@@ -220,9 +222,9 @@ const ContentInput: React.FC<ContentInputProps> = ({
         contentType = "sentence";
         type = "sentence";
         break;
-      case "explanation":
+      case "information":
         contentType = "information";
-        type = "explanation";
+        type = "information";
         break;
       default:
         contentType = "vocabulary";
@@ -246,7 +248,7 @@ const ContentInput: React.FC<ContentInputProps> = ({
       onAddVocabulary(contentData);
     } else if (activeTab === "sentences" && onAddSentence) {
       onAddSentence(contentData);
-    } else if (activeTab === "explanation" && onAddExplanation) {
+    } else if (activeTab === "information" && onAddExplanation) {
       onAddExplanation(contentData);
     } else {
       // Fallback to the general handler
@@ -279,17 +281,19 @@ const ContentInput: React.FC<ContentInputProps> = ({
     }
   };
 
+  // Properly fixed handleExplanationAdd function for ContentInput.tsx
   const handleExplanationAdd = (explanationData: any) => {
     console.log("Explanation data received:", explanationData);
 
     // Make sure we have the correct structure that matches what CreatedContentDisplay expects
     const enhancedData = {
       ...explanationData,
-      // Ensure these fields exist and are properly named
-      text: explanationData.title || explanationData.text,
-      translation: explanationData.text || explanationData.translation,
+      // Don't modify the original title and text
+      title: explanationData.title,
+      text: explanationData.text,
+      translation: explanationData.text, // Keep translation for consistency
       contentType: "information",
-      type: "explanation",
+      type: "information",
       // Generate a unique ID if needed
       uniqueId: explanationData.uniqueId || Date.now().toString(),
     };
@@ -342,11 +346,11 @@ const ContentInput: React.FC<ContentInputProps> = ({
           <li className="mr-2">
             <button
               className={`inline-block p-3 rounded-t-lg ${
-                activeTab === "explanation"
+                activeTab === "information"
                   ? "text-blue-600 border-b-2 border-blue-600"
                   : "text-gray-500 hover:text-gray-600 hover:border-gray-300"
               }`}
-              onClick={() => setActiveTab("explanation")}
+              onClick={() => setActiveTab("information")}
             >
               Erklärungstext
             </button>
@@ -488,7 +492,7 @@ const ContentInput: React.FC<ContentInputProps> = ({
         />
       )}
 
-      {activeTab === "explanation" && (
+      {activeTab === "information" && (
         <ExplanationInput onAddContent={handleExplanationAdd} />
       )}
     </div>

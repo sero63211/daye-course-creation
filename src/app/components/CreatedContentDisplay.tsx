@@ -42,7 +42,7 @@ const CreatedContentDisplay: React.FC<CreatedContentDisplayProps> = ({
         return "border-green-200";
       case "sentence":
         return "border-blue-200";
-      case "explanation":
+      case "information":
         return "border-purple-200";
       default:
         return "border-gray-200";
@@ -70,7 +70,7 @@ const CreatedContentDisplay: React.FC<CreatedContentDisplayProps> = ({
         return "bg-green-100 text-green-800";
       case "sentence":
         return "bg-blue-100 text-blue-800";
-      case "explanation":
+      case "information":
         return "bg-purple-100 text-purple-800";
       default:
         return "bg-gray-100 text-gray-800";
@@ -99,7 +99,7 @@ const CreatedContentDisplay: React.FC<CreatedContentDisplayProps> = ({
         return "Vokabel";
       case "sentence":
         return "Satz";
-      case "explanation":
+      case "information":
         return "Erklärung";
       default:
         return "Inhalt";
@@ -109,7 +109,7 @@ const CreatedContentDisplay: React.FC<CreatedContentDisplayProps> = ({
   // Helper function to check if item is an explanation
   const isExplanation = (item: EnhancedContentItem) => {
     return (
-      (item.contentType === "information" || item.type === "explanation") &&
+      (item.contentType === "information" || item.type === "information") &&
       !(item.contentType === "vocabulary" || item.contentType === "sentence")
     );
   };
@@ -130,7 +130,6 @@ const CreatedContentDisplay: React.FC<CreatedContentDisplayProps> = ({
         <div className="space-y-4 max-h-[calc(100vh-140px)] overflow-y-auto pr-2">
           {contentItems.map((item) => {
             // Debug-Ausgabe: Zeigt alle Eigenschaften des aktuellen Items
-            console.log("CreatedContentDisplay item:", item);
             return (
               <div
                 key={item.uniqueId}

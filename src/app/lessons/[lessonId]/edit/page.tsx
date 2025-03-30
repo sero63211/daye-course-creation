@@ -132,6 +132,12 @@ const ContentManagerView: React.FC<ContentManagerViewProps> = ({
   // Preview state
   const [previewStep, setPreviewStep] = useState<LearningStep | null>(null);
 
+  const [selectedContentIds, setSelectedContentIds] = useState<string[]>([]);
+  const [contentSelectorStatus, setContentSelectorStatus] = useState({
+    isProcessing: false,
+    message: "",
+  });
+
   // 1. Effect to update from courseModel when it changes
   useEffect(() => {
     if (courseModel) {
@@ -358,6 +364,14 @@ const ContentManagerView: React.FC<ContentManagerViewProps> = ({
     lastSavedContentItems,
   ]);
 
+  const resetContentSelection = () => {
+    setSelectedContentIds([]);
+    setContentSelectorStatus({
+      isProcessing: false,
+      message: "",
+    });
+    console.log("Content selection reset completed");
+  };
   // Media handling methods
   const handleImageSelect = (itemId: string) => {
     setSelectedItemId(itemId);
@@ -583,22 +597,34 @@ const ContentManagerView: React.FC<ContentManagerViewProps> = ({
       }
 
       // Filter content items to only include vocabulary and sentences
-      const learnedContent: LearningContentItem[] = contentItems
-        .filter(
-          (item) =>
-            item.contentType === "vocabulary" || item.contentType === "sentence"
-        )
-        .map((item) => ({
+      // Modified version of the learnedContent mapping in saveLanguageLearningOverview
+      const learnedContent: LearningContentItem[] = contentItems.map((item) => {
+        const baseContent = {
           id: item.id,
           uniqueId: item.uniqueId,
-          text: item.text,
-          translation: item.translation,
-          type: item.contentType as "vocabulary" | "sentence",
-          imageUrl: item.imageUrl,
-          audioUrl: item.audioUrl,
-          soundFileName: item.soundFileName,
-          examples: item.examples,
-        }));
+        };
+
+        if (item.contentType === "information" || item.type === "information") {
+          return {
+            ...baseContent,
+            text: item.text || "",
+            title: item.title || "",
+            type: "information",
+            contentType: "information",
+          };
+        } else {
+          return {
+            ...baseContent,
+            text: item.text,
+            translation: item.translation,
+            type: item.contentType as "vocabulary" | "sentence",
+            imageUrl: item.imageUrl,
+            audioUrl: item.audioUrl,
+            soundFileName: item.soundFileName,
+            examples: item.examples,
+          };
+        }
+      });
 
       const finalOverviewModel: LanguageLearningOverviewModel = {
         lessonId: internalLessonId,
@@ -985,10 +1011,13 @@ const ContentManagerView: React.FC<ContentManagerViewProps> = ({
               isOpen={true}
               stepType={activeStepType}
               contentItems={contentItems}
-              onClose={closeStepDialog}
+              onClose={closeStepDialog} // This will now reset content selection too
               onSave={handleSaveStep}
               isSaveEnabled={true}
               initialData={editingStepData}
+              selectedContentIds={selectedContentIds}
+              setSelectedContentIds={setSelectedContentIds}
+              processingStatus={contentSelectorStatus}
             />
           )}
         </div>

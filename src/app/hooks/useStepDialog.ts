@@ -4,12 +4,18 @@ import { StepType, LearningStep } from "../types/model";
 
 /**
  * Custom hook to manage step dialog state and operations
+ * @param selectedSteps - The current steps in the lesson
+ * @param setSelectedSteps - Function to update steps
+ * @param onStepsGenerated - Optional callback when steps change
+ * @param setPreviewStep - Optional function to set the preview step
+ * @param resetContentSelection - Optional function to reset content selection state
  */
 export const useStepDialog = (
   selectedSteps: LearningStep[],
   setSelectedSteps: React.Dispatch<React.SetStateAction<LearningStep[]>>,
   onStepsGenerated?: (steps: LearningStep[]) => void,
-  setPreviewStep?: React.Dispatch<React.SetStateAction<LearningStep | null>>
+  setPreviewStep?: React.Dispatch<React.SetStateAction<LearningStep | null>>,
+  resetContentSelection?: () => void
 ) => {
   const [activeStepType, setActiveStepType] = useState<StepType | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -100,10 +106,18 @@ export const useStepDialog = (
   };
 
   const closeStepDialog = () => {
+    // Reset all dialog-related state
     setIsDialogOpen(false);
     setActiveStepType(null);
     setEditingStepId(null);
     setEditingStepData(null);
+
+    // Reset content selection if the function is provided
+    if (resetContentSelection) {
+      resetContentSelection();
+    }
+
+    console.log("Dialog fully reset");
   };
 
   // Move a step up or down in the list

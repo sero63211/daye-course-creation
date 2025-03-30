@@ -42,9 +42,9 @@ const ContentTypeSelector: React.FC<ContentTypeSelectorProps> = ({
           <input
             type="radio"
             name="contentType"
-            value="explanation"
-            checked={contentType === "explanation"}
-            onChange={() => setContentType("explanation")}
+            value="information"
+            checked={contentType === "information"}
+            onChange={() => setContentType("information")}
             className="form-radio h-4 w-4 text-blue-600"
           />
           <span className="ml-2 text-black">Erklärungstext</span>

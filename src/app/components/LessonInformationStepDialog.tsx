@@ -1,22 +1,51 @@
 "use client";
-import React, { useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import IPhonePreview from "./IPhonePreview";
 import { StepType } from "../types/model";
-import { X } from "lucide-react";
 
 export interface LessonInformationModel {
   title: string;
   mainText: string;
 }
 
+interface ContentItem {
+  id: string;
+  uniqueId?: string;
+  text: string;
+  translation?: string;
+  title?: string;
+  examples?: any[];
+  imageUrl?: string;
+  audioUrl?: string;
+  type?: string;
+  contentType?: string;
+}
+
 interface LessonInformationStepDialogProps {
   dialogData: any;
   setDialogData: (data: any) => void;
+  contentItems?: ContentItem[];
+  stepType: StepType;
+  isEditMode: boolean;
 }
 
 const LessonInformationStepDialog: React.FC<
   LessonInformationStepDialogProps
-> = ({ dialogData, setDialogData }) => {
+> = ({
+  dialogData,
+  setDialogData,
+  contentItems = [],
+  stepType,
+  isEditMode,
+}) => {
+  // Log dialog data to see what's coming in
+  useEffect(() => {
+    console.log(
+      "LessonInformationStepDialog - Current dialogData:",
+      dialogData
+    );
+  }, [dialogData]);
+
   // Use memoized preview data to avoid unnecessary renders
   const previewData = useMemo(
     () => ({
@@ -26,9 +55,22 @@ const LessonInformationStepDialog: React.FC<
     [dialogData.title, dialogData.mainText]
   );
 
+  // Track when data is complete
+  useEffect(() => {
+    const isComplete = !!(dialogData.title && dialogData.mainText);
+    if (dialogData.isComplete !== isComplete) {
+      setDialogData((prevData) => ({ ...prevData, isComplete }));
+    }
+  }, [
+    dialogData.title,
+    dialogData.mainText,
+    dialogData.isComplete,
+    setDialogData,
+  ]);
+
   return (
     <div className="flex flex-col md:flex-row gap-6">
-      {/* Linke Seite: Formular */}
+      {/* Left side: Form */}
       <div className="w-full md:w-3/5 space-y-6 bg-white p-4 rounded-lg">
         <div className="space-y-4">
           <label className="block text-black">
@@ -37,7 +79,10 @@ const LessonInformationStepDialog: React.FC<
               type="text"
               value={dialogData.title || ""}
               onChange={(e) =>
-                setDialogData({ ...dialogData, title: e.target.value })
+                setDialogData((prevData) => ({
+                  ...prevData,
+                  title: e.target.value,
+                }))
               }
               className="mt-1 block w-full border rounded p-2 text-black"
               placeholder="Titel der Lektion"
@@ -48,7 +93,10 @@ const LessonInformationStepDialog: React.FC<
             <textarea
               value={dialogData.mainText || ""}
               onChange={(e) =>
-                setDialogData({ ...dialogData, mainText: e.target.value })
+                setDialogData((prevData) => ({
+                  ...prevData,
+                  mainText: e.target.value,
+                }))
               }
               className="mt-1 block w-full border rounded p-2 text-black h-64"
               placeholder="Haupttext / Inhalt der Lektion"
@@ -57,7 +105,7 @@ const LessonInformationStepDialog: React.FC<
         </div>
       </div>
 
-      {/* Rechte Seite: Vorschau */}
+      {/* Right side: Preview */}
       <div className="w-full md:w-2/5 flex justify-center">
         <div className="sticky top-8">
           <IPhonePreview

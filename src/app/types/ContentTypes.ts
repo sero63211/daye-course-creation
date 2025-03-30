@@ -11,8 +11,7 @@ export interface EnhancedContentItem {
   // Extended content
   description?: string; // Longer description/explanation (for LessonInformation.mainText)
   instructionText?: string; // Instruction (for SentenceCompletion, WordOrdering)
-  title?: string; // Title (for LessonInformation, LanguagePhrases, MatchingPairs)
-  explanation?: string; // Explanation text (for LanguagePhrases)
+  title?: string; // Title (for LessonInformation)
 
   // Media
   imageUrl?: string; // Image URL for all exercise types
@@ -36,49 +35,18 @@ export interface EnhancedContentItem {
     pronunciation: string;
   }[];
 
-  // Flags for content type determination
-  contentType?:
-    | "vocabulary"
-    | "phrase"
-    | "sentence"
-    | "conversation"
-    | "information";
-
-  // For MatchingPairs
-  isPair?: boolean; // Indicates that this element is part of a pair
-  pairId?: string; // ID of the associated pair
+  // Flags for content type determination - ONLY these three types are supported
+  contentType?: "vocabulary" | "sentence" | "information";
 
   // For SentenceCompletion
   sentenceParts?: string[]; // Parts of a sentence
   correctAnswer?: string; // Correct answer
 
-  // For FillInTheBlanks and LanguageQuestion
+  // For exercises
   options?: string[]; // Answer options
-
-  // For WordOrdering
   wordOptions?: string[]; // Words to order
   correctSentence?: string; // Correct sentence order
-
-  // For TrueFalse
   isTrueStatement?: boolean; // Is the statement true?
-
-  // For LanguagePhrases
-  phrases?: {
-    foreignText: string;
-    nativeText: string;
-    nativePrefixText?: string;
-  }[];
-
-  // For Conversation/FillInChat
-  conversations?: {
-    speakerName: string;
-    speakerAvatar?: string;
-    message: string;
-    translation?: string;
-    audioURL?: string;
-    hasMissingWord?: boolean;
-    missingWord?: string;
-  }[];
 
   // For UI integration
   type?: string; // Content type for UI display

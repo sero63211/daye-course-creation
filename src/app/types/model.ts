@@ -124,13 +124,6 @@ export enum StepType {
   Conversation = "conversation",
   Completed = "completed",
   FillInChat = "fillInChat",
-  PronunciationPractice = "pronunciationPractice", // New: Record and assess pronunciation
-  GrammarExplanation = "grammarExplanation", // New: Grammar rule explanation
-  VocabularyMatching = "vocabularyMatching", // New: Match vocabulary with definitions
-  AudioComprehension = "audioComprehension", // New: Listen to audio and answer questions
-  WritingExercise = "writingExercise", // New: Free-form writing exercises
-  VideoLesson = "videoLesson", // New: Video-based lesson
-  CulturalInsight = "culturalInsight", // New: Cultural context information
 }
 
 /**

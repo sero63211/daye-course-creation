@@ -10,6 +10,7 @@ import IPhonePreview from "./IPhonePreview";
 import { StepType } from "../types/model";
 import { v4 as uuid } from "uuid";
 import { Plus, Upload, Trash2, X, Volume2, Lightbulb } from "lucide-react";
+import ContentItemSelector from "./vocabulary-components/ContentItemSelector";
 
 interface InfoItem {
   id: string;
@@ -29,28 +30,27 @@ export interface SentenceCompletionModel {
   facts?: InfoItem[];
 }
 
+interface ContentItem {
+  id: string;
+  text: string;
+  translation?: string;
+  examples?: string[];
+  imageUrl?: string;
+  audioUrl?: string;
+  type?: string;
+  contentType?: string;
+}
+
 interface SentenceCompletionStepDialogProps {
   dialogData: any;
   setDialogData: (data: any) => void;
-  contentItems: {
-    id: string;
-    text: string;
-    translation?: string;
-    examples?: string[];
-    imageUrl?: string;
-    audioUrl?: string;
-  }[];
+  contentItems: ContentItem[];
 }
 
 const SentenceCompletionStepDialog: React.FC<
   SentenceCompletionStepDialogProps
 > = ({ dialogData, setDialogData, contentItems }) => {
-  // Alle Sätze aus den Content-Items (nur Sätze mit mehr als einem Wort)
-  const availableSentences = contentItems
-    .map((item) => item.text)
-    .filter((sentence) => sentence.split(" ").length > 1);
-
-  // Lokaler State für Satzauswahl und Lückenauswahl
+  // State for selected sentence and blank word
   const [selectedSentence, setSelectedSentence] = useState<string | null>(
     dialogData.question || null
   );
@@ -58,6 +58,14 @@ const SentenceCompletionStepDialog: React.FC<
     dialogData.correctAnswer || null
   );
   const [customSentence, setCustomSentence] = useState<string>("");
+
+  // State for ContentItemSelector
+  const [orderedItems, setOrderedItems] = useState<any[]>([]);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [processingStatus, setProcessingStatus] = useState({
+    isProcessing: false,
+    message: "",
+  });
 
   // Zusätzliche Formulardaten (Instruktionstext, Bild, Audio, Fakten)
   const [formData, setFormData] = useState({
@@ -73,6 +81,80 @@ const SentenceCompletionStepDialog: React.FC<
     usage: "",
     pronunciation: "",
   });
+
+  // Process content items once
+  // Process content items once with automatic type detection
+  useEffect(() => {
+    if (contentItems.length === 0) return;
+
+    // Log the incoming content items
+    console.log("Original content items:", contentItems);
+
+    const processed = contentItems.map((item) => {
+      // Create the base processed item
+      const processedItem: any = {
+        id: item.id,
+        text: item.text || "",
+        translation: item.translation || "",
+        _examples: item.examples,
+        imageUrl: item.imageUrl,
+        audioUrl: item.audioUrl,
+      };
+
+      // First check if the item already has type information
+      if ((item as any).type) {
+        processedItem.type = (item as any).type;
+      }
+
+      if ((item as any).contentType) {
+        processedItem.contentType = (item as any).contentType;
+      }
+
+      // If no type information exists, try to detect the type based on content
+      if (!processedItem.type && !processedItem.contentType) {
+        // Heuristic: If the text contains spaces, it's likely a sentence
+        // Otherwise, it's likely a vocabulary item
+        if (processedItem.text.includes(" ")) {
+          processedItem.type = "sentence";
+          processedItem.contentType = "sentence";
+          console.log(`Auto-detected "${processedItem.text}" as a sentence`);
+        } else {
+          processedItem.type = "vocabulary";
+          processedItem.contentType = "vocabulary";
+          console.log(`Auto-detected "${processedItem.text}" as vocabulary`);
+        }
+      }
+
+      return processedItem;
+    });
+
+    console.log("Processed items with type detection:", processed);
+    setOrderedItems(processed);
+  }, [contentItems]);
+
+  // Update when ContentItemSelector selection changes
+  useEffect(() => {
+    if (selectedIds.length === 0) return;
+
+    const selectedItem = orderedItems.find(
+      (item) => item.id === selectedIds[0]
+    );
+    if (!selectedItem) return;
+
+    setSelectedSentence(selectedItem.text);
+    setBlankWord(null); // Reset blank word when selecting new sentence
+
+    // Update media if available
+    if (selectedItem.imageUrl) {
+      setFormData((prev) => ({ ...prev, imageUrl: selectedItem.imageUrl }));
+    }
+    if (selectedItem.audioUrl) {
+      setFormData((prev) => ({
+        ...prev,
+        soundFileName: selectedItem.audioUrl,
+      }));
+    }
+  }, [selectedIds, orderedItems]);
 
   // Wenn ein Satz ausgewählt oder eingegeben wurde, speichere ihn und teile ihn in Wörter
   useEffect(() => {
@@ -106,10 +188,6 @@ const SentenceCompletionStepDialog: React.FC<
       }));
     }
   }, [blankWord, selectedSentence, setDialogData]);
-
-  const handleSelectSentence = (sentence: string) => {
-    setSelectedSentence(sentence);
-  };
 
   const handleWordClick = (word: string) => {
     setBlankWord(word);
@@ -222,50 +300,37 @@ const SentenceCompletionStepDialog: React.FC<
     <div className="flex flex-col md:flex-row gap-6">
       {/* Linke Seite: Konfiguration */}
       <div className="w-full md:w-3/5">
+        {/* Content selector */}
+
         {/* Satzauswahl und -eingabe */}
         <div className="p-6 bg-white rounded-lg mb-6">
           <h2 className="text-xl font-bold text-center mb-4 text-black">
             Satz vervollständigen
           </h2>
-          {!selectedSentence ? (
-            <div>
-              <p className="mb-2 text-black">
-                Wähle einen Satz aus den erstellten Inhalten:
-              </p>
-              <div className="flex flex-col gap-2">
-                {availableSentences.map((sentence, idx) => (
-                  <button
-                    key={idx}
-                    onClick={() => handleSelectSentence(sentence)}
-                    className="px-3 py-2 border rounded hover:bg-gray-200 cursor-pointer text-left"
-                  >
-                    {sentence}
-                  </button>
-                ))}
-              </div>
-              <div className="mt-4">
-                <label className="block mb-2 text-sm font-medium text-black">
-                  Oder eigenen Satz eingeben:
-                </label>
-                <div className="flex">
-                  <input
-                    type="text"
-                    value={customSentence}
-                    onChange={(e) => setCustomSentence(e.target.value)}
-                    className="flex-1 px-3 py-2 border rounded-l-md"
-                    placeholder="Deinen Satz hier eingeben"
-                  />
-                  <button
-                    onClick={handleCustomSentenceSubmit}
-                    className="ml-2 px-4 py-2 bg-blue-500 text-white rounded-r-md"
-                  >
-                    Übernehmen
-                  </button>
-                </div>
-              </div>
+
+          <div className="mt-4">
+            <label className="block mb-2 text-sm font-medium text-black">
+              Eigenen Satz eingeben:
+            </label>
+            <div className="flex">
+              <input
+                type="text"
+                value={customSentence}
+                onChange={(e) => setCustomSentence(e.target.value)}
+                className="flex-1 px-3 py-2 border rounded-l-md text-black"
+                placeholder="Deinen Satz hier eingeben"
+              />
+              <button
+                onClick={handleCustomSentenceSubmit}
+                className="ml-2 px-4 py-2 bg-blue-500 text-white rounded-r-md"
+              >
+                Übernehmen
+              </button>
             </div>
-          ) : (
-            <div>
+          </div>
+
+          {selectedSentence && (
+            <div className="mt-4">
               <p className="mb-2 text-black">
                 Gewählter Satz: {selectedSentence}
               </p>
@@ -277,7 +342,7 @@ const SentenceCompletionStepDialog: React.FC<
                   <button
                     key={idx}
                     onClick={() => handleWordClick(word)}
-                    className={`px-3 py-2 border rounded cursor-pointer hover:bg-gray-200 ${
+                    className={`px-3 py-2 border rounded cursor-pointer hover:bg-gray-200 text-black ${
                       blankWord === word ? "bg-green-200" : ""
                     }`}
                   >

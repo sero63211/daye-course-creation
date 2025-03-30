@@ -27,9 +27,6 @@ const ContentInputSection: React.FC<ContentInputSectionProps> = ({
   >([]);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  // Check if language name is available and log it
-  console.log(`ContentInputSection received language: "${languageName}"`);
-
   const handleAddExample = () => {
     if (newExample && newExampleTranslation) {
       setNewExamples([
@@ -142,7 +139,7 @@ const ContentInputSection: React.FC<ContentInputSectionProps> = ({
     handleAddContent({
       ...contentData,
       contentType: "information",
-      type: "explanation",
+      type: "information",
     });
   };
 

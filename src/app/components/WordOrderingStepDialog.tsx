@@ -4,6 +4,7 @@ import IPhonePreview from "./IPhonePreview";
 import { StepType } from "../types/model";
 import { v4 as uuid } from "uuid";
 import { Upload, Trash2, X, Plus } from "lucide-react";
+import ContentItemSelector from "./vocabulary-components/ContentItemSelector";
 
 interface InfoItem {
   id: string;
@@ -40,40 +41,13 @@ const WordOrderingStepDialog: React.FC<WordOrderingStepDialogProps> = ({
   setDialogData,
   contentItems = [],
 }) => {
-  // Debug contentItems
-  useEffect(() => {
-    console.log("ContentItems:", contentItems);
-    if (contentItems && contentItems.length > 0) {
-      contentItems.forEach((item) => {
-        const wordCount = item.text ? item.text.split(" ").length : 0;
-        console.log(`Item "${item.text}" has ${wordCount} words`);
-      });
-    }
-  }, [contentItems]);
-
-  // Alle Sätze aus den Content-Items (nur Sätze mit mehr als einem Wort)
-  const availableSentences = useMemo(() => {
-    if (
-      !contentItems ||
-      !Array.isArray(contentItems) ||
-      contentItems.length === 0
-    ) {
-      console.log("No content items available");
-      return [];
-    }
-
-    const sentences = contentItems
-      .filter(
-        (item) =>
-          item.text &&
-          typeof item.text === "string" &&
-          item.text.trim().split(/\s+/).length >= 2
-      )
-      .map((item) => item.text);
-
-    console.log("Available sentences after filtering:", sentences);
-    return sentences;
-  }, [contentItems]);
+  // State for ContentItemSelector
+  const [orderedItems, setOrderedItems] = useState<any[]>([]);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [processingStatus, setProcessingStatus] = useState({
+    isProcessing: false,
+    message: "",
+  });
 
   // State für ausgewählten Satz oder eigenen Satz
   const [selectedSentence, setSelectedSentence] = useState<string>(
@@ -97,6 +71,42 @@ const WordOrderingStepDialog: React.FC<WordOrderingStepDialogProps> = ({
     pronunciation: "",
   });
 
+  // Process content items once
+  useEffect(() => {
+    if (contentItems.length === 0) return;
+
+    const processed = contentItems.map((item) => ({
+      id: item.id,
+      text: item.text || "",
+      translation: item.translation || "",
+      _examples: item.examples,
+      imageUrl: item.imageUrl,
+      audioUrl: item.audioUrl,
+    }));
+
+    setOrderedItems(processed);
+  }, [contentItems]);
+
+  // Update when ContentItemSelector selection changes
+  useEffect(() => {
+    if (selectedIds.length === 0) return;
+
+    const selectedItem = orderedItems.find(
+      (item) => item.id === selectedIds[0]
+    );
+    if (!selectedItem) return;
+
+    setSelectedSentence(selectedItem.text);
+
+    // Update media if available
+    if (selectedItem.imageUrl) {
+      setImageUrl(selectedItem.imageUrl);
+    }
+    if (selectedItem.audioUrl) {
+      setSoundFileName(selectedItem.audioUrl);
+    }
+  }, [selectedIds, orderedItems]);
+
   const imageInputRef = useRef<HTMLInputElement>(null);
   const audioInputRef = useRef<HTMLInputElement>(null);
 
@@ -106,9 +116,6 @@ const WordOrderingStepDialog: React.FC<WordOrderingStepDialogProps> = ({
       .split(" ")
       .map((w) => w.trim())
       .filter((w) => w !== "");
-
-    console.log("Setting dialogData with sentence:", sentenceToUse);
-    console.log("Words for ordering:", words);
 
     setDialogData({
       ...dialogData,
@@ -128,12 +135,6 @@ const WordOrderingStepDialog: React.FC<WordOrderingStepDialogProps> = ({
     customSentence,
     facts,
   ]);
-
-  const handleSelectSentence = (sentence: string) => {
-    console.log("Selected sentence:", sentence);
-    setSelectedSentence(sentence);
-    setCustomSentence("");
-  };
 
   const handleCustomSentenceChange = (
     e: React.ChangeEvent<HTMLTextAreaElement>
@@ -214,37 +215,15 @@ const WordOrderingStepDialog: React.FC<WordOrderingStepDialogProps> = ({
     <div className="flex flex-col md:flex-row gap-6">
       {/* Linke Seite: Konfiguration */}
       <div className="w-full md:w-3/5 space-y-6 bg-white p-4 rounded-lg">
-        <div>
-          {/* Vorhandene Sätze anzeigen */}
-          <p className="text-black mb-2">Wähle einen Satz aus:</p>
-          {availableSentences.length > 0 ? (
-            <div className="space-y-2 mb-4">
-              {availableSentences.map((sentence, idx) => (
-                <button
-                  key={idx}
-                  onClick={() => handleSelectSentence(sentence)}
-                  className={`w-full text-left p-2 border rounded hover:bg-gray-200 cursor-pointer ${
-                    selectedSentence === sentence
-                      ? "bg-blue-500 text-white border-blue-500"
-                      : "bg-gray-100 text-black border-gray-300"
-                  }`}
-                >
-                  {sentence}
-                </button>
-              ))}
-            </div>
-          ) : (
-            <div className="mb-4 p-3 bg-gray-100 text-gray-600 rounded text-center">
-              Keine Sätze mit mindestens zwei Wörtern vorhanden
-            </div>
-          )}
+        {/* Content selector */}
 
+        <div>
           <div className="my-4 text-center text-black font-medium">oder</div>
 
           <div>
             <p className="text-black mb-2">Gib einen eigenen Satz ein:</p>
             <textarea
-              className="w-full p-2 border border-gray-300 rounded"
+              className="w-full p-2 border border-gray-300 rounded text-black"
               value={customSentence}
               onChange={handleCustomSentenceChange}
               placeholder="Eigenen Satz hier eingeben..."
@@ -259,7 +238,7 @@ const WordOrderingStepDialog: React.FC<WordOrderingStepDialogProps> = ({
           <input
             id="instructionText"
             type="text"
-            className="w-full p-2 border border-gray-300 rounded"
+            className="w-full p-2 border border-gray-300 rounded text-black"
             value={instructionText}
             onChange={(e) => setInstructionText(e.target.value)}
           />

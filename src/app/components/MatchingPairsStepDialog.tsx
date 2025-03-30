@@ -4,6 +4,7 @@ import IPhonePreview from "./IPhonePreview";
 import { StepType } from "../types/model";
 import { v4 as uuid } from "uuid";
 import { Plus, Trash2, X } from "lucide-react";
+import ContentItemSelector from "./vocabulary-components/ContentItemSelector";
 
 export interface InfoItem {
   id: string;
@@ -67,19 +68,40 @@ const MatchingPairsStepDialog: React.FC<MatchingPairsStepDialogProps> = ({
     pronunciation: "",
   });
 
-  // Toggle: Bei Klick auf eine Card wird der Inhalt ausgewählt oder abgewählt
-  const toggleSelection = (item: EnhancedContentItem) => {
-    let newSelected = [...selectedContent];
-    const index = newSelected.findIndex((i) => i.id === item.id);
-    if (index >= 0) {
-      // bereits ausgewählt – entferne ihn
-      newSelected.splice(index, 1);
-    } else {
-      // hinzufügen
-      newSelected.push(item);
-    }
-    setSelectedContent(newSelected);
-  };
+  // State for ContentItemSelector
+  const [orderedItems, setOrderedItems] = useState<any[]>([]);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [processingStatus, setProcessingStatus] = useState({
+    isProcessing: false,
+    message: "",
+  });
+
+  // Process content items once
+  useEffect(() => {
+    if (contentItems.length === 0) return;
+
+    const processed = contentItems.map((item) => ({
+      id: item.id,
+      text: item.text || "",
+      translation: item.translation || "",
+      _examples: item.examples,
+      imageUrl: item.imageUrl,
+      audioUrl: item.audioUrl,
+    }));
+
+    setOrderedItems(processed);
+  }, [contentItems]);
+
+  // Update selected content when selections change
+  useEffect(() => {
+    if (selectedIds.length === 0) return;
+
+    const newSelectedContent = orderedItems.filter((item) =>
+      selectedIds.includes(item.id)
+    );
+
+    setSelectedContent(newSelectedContent);
+  }, [selectedIds, orderedItems]);
 
   // Matching-Paare aus den ausgewählten Inhalten erstellen
   useEffect(() => {
@@ -193,51 +215,7 @@ const MatchingPairsStepDialog: React.FC<MatchingPairsStepDialogProps> = ({
           />
         </label>
 
-        {/* Auswahl aus contentItems */}
-        <div className="space-y-2">
-          <p className="font-semibold text-black">
-            Wählen Sie vorhandene Inhalte für das Matching-Pairs-Spiel:
-          </p>
-          {contentItems.length > 0 ? (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              {contentItems.map((item) => {
-                const isSelected = !!selectedContent.find(
-                  (sel) => sel.id === item.id
-                );
-                return (
-                  <div
-                    key={item.id}
-                    onClick={() => toggleSelection(item)}
-                    className={`border rounded p-4 cursor-pointer transition-colors ${
-                      isSelected
-                        ? "bg-blue-500 text-white border-blue-500"
-                        : "bg-gray-100 text-black border-gray-300 hover:bg-gray-200"
-                    }`}
-                  >
-                    <p className="font-medium">{item.text}</p>
-                    {item.translation && (
-                      <p className="text-sm">Übersetzung: {item.translation}</p>
-                    )}
-                    {item.examples && item.examples.length > 0 && (
-                      <div className="mt-2 text-xs">
-                        <strong>Beispiele:</strong>
-                        <ul className="list-disc ml-4">
-                          {item.examples.map((ex, idx) => (
-                            <li key={idx}>{ex}</li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          ) : (
-            <p className="text-gray-500 italic">
-              Keine vorhandenen Inhalte verfügbar.
-            </p>
-          )}
-        </div>
+        {/* Content selector */}
 
         {/* Manuelle Eingabe von Paaren */}
         <div className="space-y-2">

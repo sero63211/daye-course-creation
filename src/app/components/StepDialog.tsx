@@ -1,14 +1,12 @@
 "use client";
 import React, { useState, useEffect } from "react";
-import { StepType, LearningStep } from "../types/model";
+import { StepType, LearningStep, ProcessingStatus } from "../types/model";
 import { v4 as uuid } from "uuid";
 import {
   getEmptyModelForStepType,
   getStepTypeName,
   isDataCompleteForStepType,
 } from "../utils/stepTypeUtils";
-
-// Import dialog components
 import FalseViewStepDialog from "./FalseViewStepDialog";
 import FillInTheBlanksStepDialog from "./FillInTheBlanksStepDialog";
 import ListenVocabularyStepDialog from "./ListenVocabularyStepDialog";
@@ -20,6 +18,8 @@ import LanguagePhrasesStepDialog from "./LanguagePhrasesStepDialog";
 import MatchingPairsStepDialog from "./MatchingPairsStepDialog";
 import FillInChatStepDialog from "./FillInChatStepDialog";
 import CompletedStepDialog from "./CompletedStepDialog";
+import ContentItemSelector from "./ContentItemSelector";
+import { dialogContentSelectorConfig } from "../config/dialogContentSelectorConfig";
 
 interface StepDialogProps {
   isOpen: boolean;
@@ -30,6 +30,9 @@ interface StepDialogProps {
   isDisabled?: boolean;
   isSaveEnabled?: boolean;
   initialData?: any;
+  selectedContentIds?: string[];
+  setSelectedContentIds?: (ids: string[]) => void;
+  processingStatus?: ProcessingStatus;
 }
 
 const StepDialog: React.FC<StepDialogProps> = ({
@@ -41,8 +44,10 @@ const StepDialog: React.FC<StepDialogProps> = ({
   isDisabled = false,
   isSaveEnabled,
   initialData,
+  selectedContentIds = [],
+  setSelectedContentIds = () => {},
+  processingStatus = { isProcessing: false, message: "" },
 }) => {
-  // FIX: CRITICAL - Explicitly set isEditMode to true if initialData exists with content
   const isEditMode =
     !!initialData &&
     Object.keys(initialData).length > 0 &&
@@ -52,27 +57,10 @@ const StepDialog: React.FC<StepDialogProps> = ({
       initialData.statement ||
       initialData.question);
 
-  // Log what's happening with edit mode detection
-  console.log("StepDialog edit mode detection:", {
-    hasInitialData: !!initialData,
-    initialDataKeys: initialData ? Object.keys(initialData) : [],
-    isEditMode,
-    mainText: initialData?.mainText,
-    secondaryText: initialData?.secondaryText,
-  });
-
-  // IMPROVED: Initialize dialogData directly from initialData if in edit mode
   const [dialogData, setDialogData] = useState<any>(() => {
     if (isEditMode && initialData) {
-      // Use initial data for edit mode
-      console.log("StepDialog using initialData for edit mode:", initialData);
-      return {
-        ...initialData,
-        isComplete: true, // Always set as complete for existing data
-      };
+      return { ...initialData, isComplete: true };
     } else {
-      // Create new empty data
-      console.log("StepDialog creating empty data for new step");
       const defaultData = getEmptyModelForStepType(stepType, contentItems);
       return {
         ...defaultData,
@@ -81,66 +69,87 @@ const StepDialog: React.FC<StepDialogProps> = ({
     }
   });
 
-  // Update dialogData if initialData changes
+  // Effect for initializing data when editing
   useEffect(() => {
     if (isOpen && isEditMode && initialData) {
-      console.log(
-        "StepDialog updating dialogData from initialData:",
-        initialData
-      );
-      setDialogData({
-        ...initialData,
-        isComplete: true,
-      });
+      setDialogData({ ...initialData, isComplete: true });
     }
   }, [isOpen, initialData, isEditMode]);
 
-  // Early return if dialog is not open
-  if (!isOpen) {
-    return null;
-  }
+  // Effect for content selection - FIXED to avoid infinite loop
+  useEffect(() => {
+    if (selectedContentIds.length === 0) return;
 
-  // Render the appropriate dialog component based on step type
+    const selectedItem = contentItems.find(
+      (item) => item.id === selectedContentIds[0]
+    );
+
+    if (!selectedItem) return;
+
+    // Use functional update to avoid dependency on dialogData
+    setDialogData((prevData) => {
+      // Create a new object instead of modifying the existing one
+      const updatedData = { ...prevData };
+
+      // Handle different step types differently
+      switch (stepType) {
+        case StepType.LessonInformation:
+          if (
+            selectedItem.contentType === "information" ||
+            selectedItem.type === "information"
+          ) {
+            updatedData.title = selectedItem.title || "";
+            updatedData.mainText = selectedItem.text || "";
+          } else {
+            updatedData.title = selectedItem.text || "";
+            updatedData.mainText = selectedItem.translation || "";
+          }
+          break;
+
+        case StepType.FillInTheBlanks:
+        case StepType.SentenceCompletion:
+        case StepType.WordOrdering:
+        case StepType.LanguagePhrases:
+          updatedData.mainText = selectedItem.text || "";
+          updatedData.secondaryText = selectedItem.translation || "";
+          break;
+
+        case StepType.ListenVocabulary:
+        case StepType.MatchingPairs:
+          updatedData.items = [selectedItem]; // Example - adjust based on your needs
+          break;
+
+        // Add other cases as needed
+      }
+
+      return {
+        ...updatedData,
+        isComplete: isDataCompleteForStepType(stepType, updatedData),
+      };
+    });
+  }, [selectedContentIds, contentItems, stepType]); // Removed dialogData from dependencies
+
+  if (!isOpen) return null;
+
   const renderCustomDialog = () => {
-    // Common props for all dialog components
     const commonProps = {
       dialogData,
       setDialogData,
-      isEditMode: isEditMode, // IMPORTANT: Pass the correct edit mode flag
+      isEditMode,
       stepType,
+      contentItems,
     };
-
     switch (stepType) {
       case StepType.TrueFalse:
         return <FalseViewStepDialog {...commonProps} />;
       case StepType.FillInTheBlanks:
-        return (
-          <FillInTheBlanksStepDialog
-            {...commonProps}
-            contentItems={contentItems}
-          />
-        );
+        return <FillInTheBlanksStepDialog {...commonProps} />;
       case StepType.ListenVocabulary:
-        return (
-          <ListenVocabularyStepDialog
-            {...commonProps}
-            contentItems={contentItems}
-          />
-        );
+        return <ListenVocabularyStepDialog {...commonProps} />;
       case StepType.LanguageQuestion:
-        return (
-          <LanguageQuestionStepDialog
-            {...commonProps}
-            contentItems={contentItems}
-          />
-        );
+        return <LanguageQuestionStepDialog {...commonProps} />;
       case StepType.SentenceCompletion:
-        return (
-          <SentenceCompletionStepDialog
-            {...commonProps}
-            contentItems={contentItems}
-          />
-        );
+        return <SentenceCompletionStepDialog {...commonProps} />;
       case StepType.WordOrdering:
         return <WordOrderingStepDialog {...commonProps} />;
       case StepType.LessonInformation:
@@ -148,12 +157,7 @@ const StepDialog: React.FC<StepDialogProps> = ({
       case StepType.LanguagePhrases:
         return <LanguagePhrasesStepDialog {...commonProps} />;
       case StepType.MatchingPairs:
-        return (
-          <MatchingPairsStepDialog
-            {...commonProps}
-            contentItems={contentItems}
-          />
-        );
+        return <MatchingPairsStepDialog {...commonProps} />;
       case StepType.FillInChat:
         return <FillInChatStepDialog {...commonProps} />;
       case StepType.Completed:
@@ -163,41 +167,31 @@ const StepDialog: React.FC<StepDialogProps> = ({
     }
   };
 
-  // Handle save button click
   const handleSave = (e: React.MouseEvent) => {
-    e.stopPropagation(); // Prevent event bubbling
-
-    console.log("Saving step with data:", dialogData);
-
-    // Create the step object, preserving the original ID if in edit mode
+    e.stopPropagation();
     const newStep: LearningStep = {
       id: isEditMode && initialData?.id ? initialData.id : uuid(),
       type: stepType,
       data: dialogData,
     };
-
     onSave(newStep);
   };
 
-  // Handle close button click
   const handleClose = (e: React.MouseEvent) => {
-    e.stopPropagation(); // Prevent event bubbling
+    e.stopPropagation();
     onClose();
   };
 
-  // Determine if save button should be enabled
   const canSave = dialogData.isComplete !== false;
-
-  // Handle dialog backdrop click to prevent accidental closures
   const handleBackdropClick = (e: React.MouseEvent) => {
-    // Only close if clicking exactly on the backdrop
-    if (e.target === e.currentTarget) {
-      onClose();
-    }
+    if (e.target === e.currentTarget) onClose();
   };
 
-  // Adjust dialog title (Create or Edit)
   const dialogTitle = isEditMode ? "Schritt bearbeiten" : "Schritt erstellen";
+  const currentConfig = dialogContentSelectorConfig[stepType] || {
+    renderSelector: false,
+    acceptedTypes: [],
+  };
 
   return (
     <div
@@ -214,10 +208,22 @@ const StepDialog: React.FC<StepDialogProps> = ({
             sind.
           </p>
         )}
-
         <h2 className="text-xl font-bold mb-4 text-white">
           {dialogTitle}: {getStepTypeName(stepType)}
         </h2>
+
+        {/* ContentItemSelector placed between title and dialog content */}
+        {currentConfig.renderSelector && (
+          <ContentItemSelector
+            orderedItems={contentItems}
+            selectedIds={selectedContentIds}
+            setSelectedIds={setSelectedContentIds}
+            processingStatus={processingStatus}
+            allowedContentTypes={currentConfig.acceptedTypes}
+            title="Wähle einen Inhalt aus"
+            description="Klicke auf ein Element, um es auszuwählen."
+          />
+        )}
 
         {renderCustomDialog()}
 
@@ -235,16 +241,13 @@ const StepDialog: React.FC<StepDialogProps> = ({
               (isSaveEnabled !== undefined && !isSaveEnabled) ||
               !canSave
             }
-            className={`
-              px-4 py-2 bg-blue-500 text-white rounded 
-              ${
-                isDisabled ||
-                (isSaveEnabled !== undefined && !isSaveEnabled) ||
-                !canSave
-                  ? "opacity-50 cursor-not-allowed"
-                  : "hover:bg-blue-600"
-              }
-            `}
+            className={`px-4 py-2 bg-blue-500 text-white rounded ${
+              isDisabled ||
+              (isSaveEnabled !== undefined && !isSaveEnabled) ||
+              !canSave
+                ? "opacity-50 cursor-not-allowed"
+                : "hover:bg-blue-600"
+            }`}
           >
             {isEditMode ? "Aktualisieren" : "Speichern"}
           </button>
