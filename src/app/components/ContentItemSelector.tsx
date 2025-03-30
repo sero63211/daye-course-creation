@@ -28,6 +28,30 @@ const ContentItemSelector: React.FC<ContentItemSelectorProps> = ({
     [setSelectedIds]
   );
 
+  // Update when ContentItemSelector selection changes
+  useEffect(() => {
+    if (selectedIds.length === 0) return;
+
+    const selectedItem = orderedItems.find(
+      (item) => item.id === selectedIds[0]
+    );
+    if (!selectedItem) return;
+
+    // Handle information type content differently
+    if (
+      selectedItem.contentType === "information" ||
+      selectedItem.type === "information"
+    ) {
+      setDialogData({
+        ...dialogData,
+        title: selectedItem.title || "", // Map title correctly
+        mainText: selectedItem.text || "", // Map text to mainText
+      });
+    } else {
+      // Your existing selection handling...
+    }
+  }, [selectedIds, orderedItems]);
+
   const getProcessedExamples = useCallback((item: ContentItem) => {
     if (
       !item._examples ||

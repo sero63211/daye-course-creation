@@ -102,8 +102,8 @@ const cleanLearnedContent = (
   }
 
   return learnedContent.map((item) => {
-    // Ensure all required fields have values and replace undefined with null or empty values
-    return {
+    // Base properties for all types
+    const cleanedItem: any = {
       id: item.id || "",
       uniqueId: item.uniqueId || "",
       text: item.text || "",
@@ -120,6 +120,14 @@ const cleanLearnedContent = (
           }))
         : [],
     };
+
+    // Add title field if this is an information type
+    if (item.type === "information" || item.contentType === "information") {
+      cleanedItem.title = item.title || "";
+      cleanedItem.contentType = "information";
+    }
+
+    return cleanedItem;
   });
 };
 

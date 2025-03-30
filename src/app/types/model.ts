@@ -44,7 +44,9 @@ export interface LearningContentItem {
   uniqueId: string;
   text: string;
   translation?: string;
-  type: "vocabulary" | "sentence";
+  type: "vocabulary" | "sentence" | "information"; // Add "information" type
+  title?: string;
+  contentType?: string; // Optionally add this for consistency
   imageUrl?: string;
   audioUrl?: string;
   soundFileName?: string;

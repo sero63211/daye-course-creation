@@ -38,14 +38,6 @@ const LessonInformationStepDialog: React.FC<
   stepType,
   isEditMode,
 }) => {
-  // Log dialog data to see what's coming in
-  useEffect(() => {
-    console.log(
-      "LessonInformationStepDialog - Current dialogData:",
-      dialogData
-    );
-  }, [dialogData]);
-
   // Use memoized preview data to avoid unnecessary renders
   const previewData = useMemo(
     () => ({
