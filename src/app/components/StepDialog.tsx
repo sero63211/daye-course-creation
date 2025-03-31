@@ -179,14 +179,35 @@ const StepDialog: React.FC<StepDialogProps> = ({
 
   const handleClose = (e: React.MouseEvent) => {
     e.stopPropagation();
+
+    setSelectedContentIds([]);
+
+    const defaultData = getEmptyModelForStepType(stepType, contentItems);
+    setDialogData({
+      ...defaultData,
+      isComplete: isDataCompleteForStepType(stepType, defaultData),
+    });
+
     onClose();
   };
 
   const canSave = dialogData.isComplete !== false;
   const handleBackdropClick = (e: React.MouseEvent) => {
-    if (e.target === e.currentTarget) onClose();
-  };
+    if (e.target === e.currentTarget) {
+      // Reset the selected content IDs
+      setSelectedContentIds([]);
 
+      // Reset dialog data to default state
+      const defaultData = getEmptyModelForStepType(stepType, contentItems);
+      setDialogData({
+        ...defaultData,
+        isComplete: isDataCompleteForStepType(stepType, defaultData),
+      });
+
+      // Call the original onClose handler
+      onClose();
+    }
+  };
   const dialogTitle = isEditMode ? "Schritt bearbeiten" : "Schritt erstellen";
   const currentConfig = dialogContentSelectorConfig[stepType] || {
     renderSelector: false,
