@@ -53,7 +53,6 @@ const ContentInputSection: React.FC<ContentInputSectionProps> = ({
     );
   };
 
-  // Modified to check for duplicates before adding content
   const handleAddContent = (contentData: any) => {
     // Create a temporary item to check for duplicates
     const newItem: EnhancedContentItem = {
@@ -67,6 +66,7 @@ const ContentInputSection: React.FC<ContentInputSectionProps> = ({
       soundFileName: contentData.soundFileName,
       contentType: contentData.contentType || "vocabulary",
       type: contentData.type || contentData.contentType || "vocabulary",
+      title: contentData.title, // Add this line to include the title
     };
 
     // Check if this is a duplicate
@@ -95,6 +95,7 @@ const ContentInputSection: React.FC<ContentInputSectionProps> = ({
         soundFileName: contentData.soundFileName,
         contentType: contentData.contentType || "vocabulary",
         type: contentData.type || contentData.contentType || "vocabulary",
+        title: contentData.title, // Add this line to include the title
       });
       // Reset form
       setNewText("");
@@ -117,7 +118,6 @@ const ContentInputSection: React.FC<ContentInputSectionProps> = ({
       setNewExamples([]);
     }
   };
-
   // Add specific handlers for different content types
   const handleAddVocabulary = (contentData: any) => {
     handleAddContent({
