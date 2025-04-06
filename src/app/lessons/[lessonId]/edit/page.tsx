@@ -32,6 +32,7 @@ import { availableStepTypes } from "../../../data/exerciseTypeData";
 
 // Types
 import { EnhancedContentItem } from "../../../types/ContentTypes";
+import storageService from "../../../services/StorageService";
 
 export interface ContentManagerViewProps {
   initialItems?: EnhancedContentItem[];
@@ -261,7 +262,7 @@ const ContentManagerView: React.FC<ContentManagerViewProps> = ({
             contentType: item.type,
           }));
           setContentItems(initialContent);
-          setLastSavedContentItems(initialContent);
+          setLastSavedContentItems(initialContent); // Make sure this is added
         }
 
         // Find chapter if we have course data
@@ -339,23 +340,49 @@ const ContentManagerView: React.FC<ContentManagerViewProps> = ({
 
   // Effect to check for unsaved changes
   useEffect(() => {
-    // Check if content items have changed from last saved state
-    const contentItemsChanged =
-      JSON.stringify(contentItems) !== JSON.stringify(lastSavedContentItems);
+    try {
+      // Check if content items have changed from last saved state
+      const contentItemsChanged =
+        JSON.stringify(
+          contentItems.map((item) => ({ ...item, uniqueId: undefined }))
+        ) !==
+        JSON.stringify(
+          lastSavedContentItems.map((item) => ({
+            ...item,
+            uniqueId: undefined,
+          }))
+        );
 
-    // Check if selected steps have changed
-    const stepsChanged =
-      learningOverviewModel?.learningSteps &&
-      JSON.stringify(learningOverviewModel.learningSteps) !==
-        JSON.stringify(selectedSteps);
+      // Check if selected steps have changed - make sure to handle null/undefined values
+      const stepsChanged =
+        (learningOverviewModel?.learningSteps?.length || 0) !==
+          selectedSteps.length ||
+        JSON.stringify(learningOverviewModel?.learningSteps || []) !==
+          JSON.stringify(selectedSteps);
 
-    // Check if lesson data has changed (basic check, can be expanded)
-    const lessonDataChanged =
-      lessonData?.title !== learningOverviewModel?.title;
+      // Check if lesson data has changed (expanded check)
+      const lessonDataChanged =
+        lessonData?.title !== learningOverviewModel?.title ||
+        lessonData?.description !== learningOverviewModel?.description;
 
-    setHasUnsavedChanges(
-      contentItemsChanged || stepsChanged || lessonDataChanged
-    );
+      const hasChanges =
+        contentItemsChanged || stepsChanged || lessonDataChanged;
+
+      // Add logging to debug
+      if (hasChanges) {
+        console.log("Unsaved changes detected:", {
+          contentItemsChanged,
+          stepsChanged,
+          lessonDataChanged,
+        });
+      }
+
+      setHasUnsavedChanges(hasChanges);
+    } catch (error) {
+      console.error("Error checking for unsaved changes:", error);
+      // Default to allowing saves if we can't determine
+      setHasUnsavedChanges(true);
+    }
   }, [
     contentItems,
     selectedSteps,
@@ -363,7 +390,6 @@ const ContentManagerView: React.FC<ContentManagerViewProps> = ({
     learningOverviewModel,
     lastSavedContentItems,
   ]);
-
   const resetContentSelection = () => {
     setSelectedContentIds([]);
     setContentSelectorStatus({
@@ -382,6 +408,10 @@ const ContentManagerView: React.FC<ContentManagerViewProps> = ({
     if (e.target.files && e.target.files[0] && selectedItemId) {
       const file = e.target.files[0];
       const imageUrl = URL.createObjectURL(file);
+
+      // Register the blob with the storage service
+      storageService.registerBlobForUpload(imageUrl, file);
+
       updateContentItemMedia(selectedItemId, { imageUrl });
     }
   };
@@ -391,10 +421,15 @@ const ContentManagerView: React.FC<ContentManagerViewProps> = ({
     if (audioInputRef.current) audioInputRef.current.click();
   };
 
+  // Updated handleAudioChange (for audio files)
   const handleAudioChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0] && selectedItemId) {
       const file = e.target.files[0];
       const audioUrl = URL.createObjectURL(file);
+
+      // Register the blob with the storage service
+      storageService.registerBlobForUpload(audioUrl, file);
+
       updateContentItemMedia(selectedItemId, {
         audioUrl,
         soundFileName: file.name,

@@ -21,6 +21,7 @@ import {
   LearningContentItem,
 } from "../types/model";
 import { v4 as uuidv4 } from "uuid";
+import storageService from "../services/StorageService";
 
 /**
  * Helper function to fill missing learning overview attributes with default values
@@ -91,6 +92,215 @@ const deepCleanUndefined = (obj: any): any => {
   return cleaned;
 };
 
+/**
+ * Helper function to process and upload media files for content items
+ * @param lessonId The lesson ID
+ * @param learnedContent The array of content items
+ * @returns Promise with the processed content items
+ */
+const processAndUploadMedia = async (
+  lessonId: string,
+  learnedContent: LearningContentItem[]
+): Promise<LearningContentItem[]> => {
+  if (!learnedContent || !Array.isArray(learnedContent)) {
+    return [];
+  }
+
+  const uploadPromises = learnedContent.map(async (item) => {
+    try {
+      // Define the text to use for file naming
+      const itemText = item.text || item.title || "unnamed";
+
+      // Handle image upload if present and not already a Firebase URL
+      let imageUrl = item.imageUrl;
+      if (imageUrl && !storageService.isFirebaseStorageUrl(imageUrl)) {
+        // Only attempt to upload if it's not already a Firebase URL
+        const uploadedImageUrl = await storageService.uploadFileIfNeeded(
+          imageUrl,
+          lessonId,
+          itemText,
+          "image"
+        );
+
+        // Only update if we got a valid URL back (not undefined)
+        if (uploadedImageUrl) {
+          imageUrl = uploadedImageUrl;
+        }
+      }
+
+      // Handle audio upload if present and not already a Firebase URL
+      let audioUrl = item.audioUrl;
+      if (audioUrl && !storageService.isFirebaseStorageUrl(audioUrl)) {
+        // Only attempt to upload if it's not already a Firebase URL
+        const uploadedAudioUrl = await storageService.uploadFileIfNeeded(
+          audioUrl,
+          lessonId,
+          itemText,
+          "audio"
+        );
+
+        // Only update if we got a valid URL back (not undefined)
+        if (uploadedAudioUrl) {
+          audioUrl = uploadedAudioUrl;
+        }
+      }
+
+      // Create a new item with updated URLs
+      return {
+        ...item,
+        imageUrl,
+        audioUrl,
+      };
+    } catch (error) {
+      console.error("Error processing media for content item:", error);
+      // Return the original item in case of error
+      return item;
+    }
+  });
+
+  // Wait for all upload promises to complete
+  return Promise.all(uploadPromises);
+};
+
+/**
+ * Process learning steps to upload any media files
+ * @param lessonId The lesson ID
+ * @param steps The learning steps
+ * @returns Promise with the processed steps
+ */
+const processStepsMedia = async (
+  lessonId: string,
+  steps: LearningStep[]
+): Promise<LearningStep[]> => {
+  if (!steps || !Array.isArray(steps)) {
+    return [];
+  }
+
+  const processedSteps = await Promise.all(
+    steps.map(async (step) => {
+      try {
+        // Check if the step data contains imageUrl or audioUrl/soundFileName
+        if (!step.data) return step;
+
+        const stepData = { ...step.data };
+        const stepTextForNaming =
+          stepData.mainText ||
+          stepData.questionText ||
+          stepData.title ||
+          `step_${step.id}`;
+
+        // Process imageUrl if present and not already a Firebase URL
+        if (
+          stepData.imageUrl &&
+          !storageService.isFirebaseStorageUrl(stepData.imageUrl)
+        ) {
+          const uploadedImageUrl = await storageService.uploadFileIfNeeded(
+            stepData.imageUrl,
+            lessonId,
+            stepTextForNaming,
+            "image"
+          );
+
+          if (uploadedImageUrl) {
+            stepData.imageUrl = uploadedImageUrl;
+          }
+        }
+
+        // Process audioUrl or soundFileName if present and not already a Firebase URL
+        if (
+          stepData.audioUrl &&
+          !storageService.isFirebaseStorageUrl(stepData.audioUrl)
+        ) {
+          const uploadedAudioUrl = await storageService.uploadFileIfNeeded(
+            stepData.audioUrl,
+            lessonId,
+            stepTextForNaming,
+            "audio"
+          );
+
+          if (uploadedAudioUrl) {
+            stepData.audioUrl = uploadedAudioUrl;
+          }
+        } else if (
+          stepData.soundFileName &&
+          stepData.soundFileName.startsWith("blob:") &&
+          !storageService.isFirebaseStorageUrl(stepData.soundFileName)
+        ) {
+          // Some steps use soundFileName instead of audioUrl
+          const uploadedSoundFileName = await storageService.uploadFileIfNeeded(
+            stepData.soundFileName,
+            lessonId,
+            stepTextForNaming,
+            "audio"
+          );
+
+          if (uploadedSoundFileName) {
+            stepData.soundFileName = uploadedSoundFileName;
+          }
+        }
+
+        // Process items array if this is a vocabulary or matching pairs step
+        if (Array.isArray(stepData.items)) {
+          const processedItems = await Promise.all(
+            stepData.items.map(async (item: any) => {
+              const itemText = item.text || item.term || "item";
+
+              if (
+                item.imageUrl &&
+                !storageService.isFirebaseStorageUrl(item.imageUrl)
+              ) {
+                const uploadedImageUrl =
+                  await storageService.uploadFileIfNeeded(
+                    item.imageUrl,
+                    lessonId,
+                    itemText,
+                    "image"
+                  );
+
+                if (uploadedImageUrl) {
+                  item.imageUrl = uploadedImageUrl;
+                }
+              }
+
+              if (
+                item.audioUrl &&
+                !storageService.isFirebaseStorageUrl(item.audioUrl)
+              ) {
+                const uploadedAudioUrl =
+                  await storageService.uploadFileIfNeeded(
+                    item.audioUrl,
+                    lessonId,
+                    itemText,
+                    "audio"
+                  );
+
+                if (uploadedAudioUrl) {
+                  item.audioUrl = uploadedAudioUrl;
+                }
+              }
+
+              return item;
+            })
+          );
+
+          stepData.items = processedItems;
+        }
+
+        // Return the step with updated data
+        return {
+          ...step,
+          data: stepData,
+        };
+      } catch (error) {
+        console.error("Error processing media for step:", error);
+        // Return the original step in case of error
+        return step;
+      }
+    })
+  );
+
+  return processedSteps;
+};
 /**
  * Helper function to clean learned content items
  */
@@ -189,6 +399,29 @@ class LessonService {
 
       console.log("Updating lesson with ID:", lesson.id);
 
+      // *** PROCESS MEDIA FILES BEFORE UPDATING ***
+      // Upload any new media files for learned content
+      if (lesson.learnedContent && lesson.learnedContent.length > 0) {
+        console.log("Processing media files for learned content...");
+        lesson.learnedContent = await processAndUploadMedia(
+          lesson.id,
+          lesson.learnedContent
+        );
+      }
+
+      // Process media files in learning steps
+      if (
+        lesson.learningOverview &&
+        lesson.learningOverview.learningSteps &&
+        lesson.learningOverview.learningSteps.length > 0
+      ) {
+        console.log("Processing media files for learning steps...");
+        lesson.learningOverview.learningSteps = await processStepsMedia(
+          lesson.id,
+          lesson.learningOverview.learningSteps
+        );
+      }
+
       // Clean learnedContent to ensure no undefined values
       if (lesson.learnedContent) {
         lesson.learnedContent = cleanLearnedContent(lesson.learnedContent);
@@ -246,6 +479,29 @@ class LessonService {
         console.log("Generated new lesson ID:", lesson.id);
       } else {
         console.log("Using provided lesson ID:", lesson.id);
+      }
+
+      // *** PROCESS MEDIA FILES BEFORE CREATING ***
+      // Upload any new media files for learned content
+      if (lesson.learnedContent && lesson.learnedContent.length > 0) {
+        console.log("Processing media files for learned content...");
+        lesson.learnedContent = await processAndUploadMedia(
+          lesson.id,
+          lesson.learnedContent
+        );
+      }
+
+      // Process media files in learning steps
+      if (
+        lesson.learningOverview &&
+        lesson.learningOverview.learningSteps &&
+        lesson.learningOverview.learningSteps.length > 0
+      ) {
+        console.log("Processing media files for learning steps...");
+        lesson.learningOverview.learningSteps = await processStepsMedia(
+          lesson.id,
+          lesson.learningOverview.learningSteps
+        );
       }
 
       // Clean learnedContent to ensure no undefined values
@@ -364,17 +620,21 @@ class LessonService {
         throw new Error(`Lesson with ID ${lessonId} not found`);
       }
 
+      // Process media files in learning steps
+      console.log("Processing media files for learning steps...");
+      const processedSteps = await processStepsMedia(lessonId, learningSteps);
+
       const lessonData = lessonSnap.data() as LessonModel;
 
       // Update the learning overview with new learning steps
       if (!lessonData.learningOverview) {
         lessonData.learningOverview = {
           lessonId: lessonId,
-          learningSteps: learningSteps,
+          learningSteps: processedSteps,
           title: lessonData.title,
         };
       } else {
-        lessonData.learningOverview.learningSteps = learningSteps;
+        lessonData.learningOverview.learningSteps = processedSteps;
       }
 
       // Clean the learning steps to remove any undefined values
