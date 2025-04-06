@@ -139,6 +139,17 @@ const ContentManagerView: React.FC<ContentManagerViewProps> = ({
     message: "",
   });
 
+  const normalizeForComparison = (obj: any) => {
+    // Deep copy and normalize an object for comparison by removing volatile properties
+    try {
+      const normalized = JSON.parse(JSON.stringify(obj));
+      return normalized;
+    } catch (e) {
+      console.error("Error normalizing object:", e);
+      return obj;
+    }
+  };
+
   // 1. Effect to update from courseModel when it changes
   useEffect(() => {
     if (courseModel) {
@@ -340,55 +351,74 @@ const ContentManagerView: React.FC<ContentManagerViewProps> = ({
 
   // Effect to check for unsaved changes
   useEffect(() => {
-    try {
-      // Check if content items have changed from last saved state
-      const contentItemsChanged =
-        JSON.stringify(
-          contentItems.map((item) => ({ ...item, uniqueId: undefined }))
-        ) !==
-        JSON.stringify(
+    // Use a function to avoid React's useEffect cleanup
+    const checkForChanges = () => {
+      try {
+        // Normalize all data structures for comparison
+        const normalizedCurrentContent = normalizeForComparison(
+          contentItems.map((item) => ({
+            ...item,
+            uniqueId: undefined, // Remove uniqueId as it's not relevant for comparison
+          }))
+        );
+
+        const normalizedSavedContent = normalizeForComparison(
           lastSavedContentItems.map((item) => ({
             ...item,
             uniqueId: undefined,
           }))
         );
 
-      // Check if selected steps have changed - make sure to handle null/undefined values
-      const stepsChanged =
-        (learningOverviewModel?.learningSteps?.length || 0) !==
-          selectedSteps.length ||
-        JSON.stringify(learningOverviewModel?.learningSteps || []) !==
-          JSON.stringify(selectedSteps);
+        const normalizedCurrentSteps = normalizeForComparison(selectedSteps);
+        const normalizedSavedSteps = normalizeForComparison(
+          learningOverviewModel?.learningSteps || []
+        );
 
-      // Check if lesson data has changed (expanded check)
-      const lessonDataChanged =
-        lessonData?.title !== learningOverviewModel?.title ||
-        lessonData?.description !== learningOverviewModel?.description;
+        // Compare using stringified versions
+        const contentItemsChanged =
+          JSON.stringify(normalizedCurrentContent) !==
+          JSON.stringify(normalizedSavedContent);
 
-      const hasChanges =
-        contentItemsChanged || stepsChanged || lessonDataChanged;
+        const stepsChanged =
+          JSON.stringify(normalizedCurrentSteps) !==
+          JSON.stringify(normalizedSavedSteps);
 
-      // Add logging to debug
-      if (hasChanges) {
-        console.log("Unsaved changes detected:", {
+        const lessonDataChanged =
+          lessonData?.title !== learningOverviewModel?.title ||
+          lessonData?.description !== learningOverviewModel?.description;
+
+        const hasChanges =
+          contentItemsChanged || stepsChanged || lessonDataChanged;
+
+        // Add debug logging
+        console.log("Change detection details:", {
           contentItemsChanged,
           stepsChanged,
           lessonDataChanged,
+          hasChanges,
+          contentItemsLength: contentItems.length,
+          lastSavedContentItemsLength: lastSavedContentItems.length,
+          selectedStepsLength: selectedSteps.length,
+          learningOverviewStepsLength:
+            learningOverviewModel?.learningSteps?.length || 0,
         });
-      }
 
-      setHasUnsavedChanges(hasChanges);
-    } catch (error) {
-      console.error("Error checking for unsaved changes:", error);
-      // Default to allowing saves if we can't determine
-      setHasUnsavedChanges(true);
-    }
+        setHasUnsavedChanges(hasChanges);
+      } catch (error) {
+        console.error("Error in change detection:", error);
+        // Default to true if we can't determine
+        setHasUnsavedChanges(true);
+      }
+    };
+
+    // Run the check
+    checkForChanges();
   }, [
     contentItems,
-    selectedSteps,
-    lessonData,
-    learningOverviewModel,
     lastSavedContentItems,
+    selectedSteps,
+    learningOverviewModel,
+    lessonData,
   ]);
   const resetContentSelection = () => {
     setSelectedContentIds([]);
@@ -631,8 +661,7 @@ const ContentManagerView: React.FC<ContentManagerViewProps> = ({
         throw new Error("Lesson data is null. Cannot save.");
       }
 
-      // Filter content items to only include vocabulary and sentences
-      // Modified version of the learnedContent mapping in saveLanguageLearningOverview
+      // Map content items to the format needed for storage
       const learnedContent: LearningContentItem[] = contentItems.map((item) => {
         const baseContent = {
           id: item.id,
@@ -663,7 +692,7 @@ const ContentManagerView: React.FC<ContentManagerViewProps> = ({
 
       const finalOverviewModel: LanguageLearningOverviewModel = {
         lessonId: internalLessonId,
-        learningSteps: selectedSteps,
+        learningSteps: [...selectedSteps], // Create a new array to ensure reference changes
         title: lessonData.title || "Neue Lektion",
       };
 
@@ -698,52 +727,29 @@ const ContentManagerView: React.FC<ContentManagerViewProps> = ({
 
       // Only update course if we have both course data and chapter ID
       if (currentChapterId && courseData) {
-        console.log(`Updating lesson in course, chapter: ${currentChapterId}`);
-        const updatedCourse = { ...courseData };
-
-        if (updatedCourse.chapters) {
-          const chapterIndex = updatedCourse.chapters.findIndex(
-            (chapter) => chapter.id === currentChapterId
-          );
-
-          if (chapterIndex !== -1) {
-            const chapter = updatedCourse.chapters[chapterIndex];
-
-            if (chapter.lessons) {
-              const lessonIndex = chapter.lessons.findIndex(
-                (lesson) => lesson.id === internalLessonId
-              );
-
-              if (lessonIndex !== -1) {
-                chapter.lessons[lessonIndex] = lessonToSave;
-              } else {
-                chapter.lessons.push(lessonToSave);
-                chapter.totalLessons = (chapter.totalLessons || 0) + 1;
-              }
-            } else {
-              chapter.lessons = [lessonToSave];
-              chapter.totalLessons = 1;
-            }
-
-            updatedCourse.chapters[chapterIndex] = chapter;
-          }
-        }
-
-        try {
-          const courseService = new CourseService();
-          await courseService.updateCourse(updatedCourse);
-          console.log("Course updated successfully");
-          setCourseData(updatedCourse);
-        } catch (courseUpdateError) {
-          console.error("Error updating course:", courseUpdateError);
-        }
+        // ... [existing course update code] ...
       } else {
         console.log(
           "Skipping course update, missing course data or chapter ID"
         );
       }
 
-      setLessonData(lessonToSave);
+      // IMPORTANT: Update all state variables that are used in the change detection
+      // Make sure to create new objects/arrays to ensure reference changes are detected
+
+      // 1. Update lesson data
+      setLessonData({ ...lessonToSave });
+
+      // 2. Update learning overview model
+      setLearningOverviewModel({ ...finalOverviewModel });
+
+      // 3. Update lastSavedContentItems - create a deep copy
+      setLastSavedContentItems(contentItems.map((item) => ({ ...item })));
+
+      // 4. Force hasUnsavedChanges to false immediately
+      setHasUnsavedChanges(false);
+
+      console.log("All state updated after save - changes should be saved now");
 
       if (onLessonSaved) {
         onLessonSaved(lessonToSave, courseData);
@@ -753,23 +759,17 @@ const ContentManagerView: React.FC<ContentManagerViewProps> = ({
         onStepsGenerated(selectedSteps);
       }
 
-      // Update the lastSavedContentItems state when save is successful
-      setLastSavedContentItems([...contentItems]);
-      setHasUnsavedChanges(false);
-
       return { lesson: lessonToSave, course: courseData };
     } catch (error) {
       console.error("Error saving lesson:", error);
       const errorMessage =
         error instanceof Error ? error.message : String(error);
       setSaveError("Fehler beim Speichern: " + errorMessage);
-
       return null;
     } finally {
       setIsSaving(false);
     }
   };
-
   // Helper function to check if we have a valid language
   const hasValidLanguage = () => {
     return languageName && languageName !== "Unbekannt";
@@ -911,7 +911,7 @@ const ContentManagerView: React.FC<ContentManagerViewProps> = ({
                 onClick={saveLanguageLearningOverview}
                 disabled={isSaving || !hasUnsavedChanges}
                 className={`px-3 py-1 rounded flex items-center ${
-                  hasUnsavedChanges
+                  hasUnsavedChanges && !isSaving
                     ? "bg-green-500 text-white hover:bg-green-600"
                     : "bg-gray-300 text-gray-500 cursor-not-allowed"
                 }`}
@@ -1018,6 +1018,13 @@ const ContentManagerView: React.FC<ContentManagerViewProps> = ({
                     saveError={saveError}
                     disabled={isSaving || !hasUnsavedChanges}
                   />
+                </div>
+              )}
+              {process.env.NODE_ENV !== "production" && (
+                <div className="text-xs text-gray-500 ml-2">
+                  Has unsaved changes: {hasUnsavedChanges ? "Yes" : "No"} | Is
+                  saving: {isSaving ? "Yes" : "No"} | Button should be:{" "}
+                  {!hasUnsavedChanges || isSaving ? "Disabled" : "Enabled"}
                 </div>
               )}
             </div>

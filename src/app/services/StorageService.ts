@@ -45,7 +45,7 @@ class StorageService {
   /**
    * Uploads a file to Firebase Storage if it's not already stored there
    * @param fileUrl Local blob URL or existing Firebase URL
-   * @param lessonId The ID of the lesson
+   * @param lessonId The ID of the lesson (not used for path - files are stored in root)
    * @param itemText The text/word of the item for naming
    * @param fileType The type of file ('image' or 'audio')
    * @returns Promise with the Firebase Storage URL
@@ -82,15 +82,16 @@ class StorageService {
             .toLowerCase()
             .substring(0, 30); // Limit length to 30 chars
 
-          // Generate a unique filename with the lesson ID, item text, and a timestamp
+          // Generate a unique filename with the item text and a timestamp
+          // Store directly in root, not in lesson-specific folder
           const fileExtension =
             fileType === "image"
               ? this.getImageExtension(blob.type)
               : this.getAudioExtension(blob.type);
 
-          const fileName = `${lessonId}/${fileType}s/${safeItemText}_${Date.now()}${fileExtension}`;
+          const fileName = `${fileType}_${safeItemText}_${Date.now()}${fileExtension}`;
 
-          // Create a reference to the storage location
+          // Create a reference to the storage location (directly in root)
           const storageRef = ref(this.storage, fileName);
 
           // Upload the blob data

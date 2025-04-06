@@ -1,6 +1,7 @@
 // components/SentenceInput.tsx
 import React, { useState, useRef, useEffect } from "react";
 import { Plus, Minus, Upload, Music, Mic, MicOff, Image } from "lucide-react";
+import storageService from "../services/StorageService"; // Import storageService
 
 interface SentenceInputProps {
   newExample: string;
@@ -58,7 +59,10 @@ const SentenceInput: React.FC<SentenceInputProps> = ({
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
       setImageFile(file);
-      setImagePreview(URL.createObjectURL(file));
+      const url = URL.createObjectURL(file);
+      // Register blob with storageService
+      storageService.registerBlobForUpload(url, file);
+      setImagePreview(url);
     }
   };
 
@@ -66,7 +70,10 @@ const SentenceInput: React.FC<SentenceInputProps> = ({
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
       setAudioFile(file);
-      setAudioURL(URL.createObjectURL(file));
+      const url = URL.createObjectURL(file);
+      // Register blob with storageService
+      storageService.registerBlobForUpload(url, file);
+      setAudioURL(url);
     }
   };
 
@@ -88,6 +95,8 @@ const SentenceInput: React.FC<SentenceInputProps> = ({
           type: "audio/m4a",
         });
         const audioUrl = URL.createObjectURL(audioBlob);
+        // Register blob with storageService
+        storageService.registerBlobForUpload(audioUrl, audioBlob);
         setAudioURL(audioUrl);
 
         // Convert to File object

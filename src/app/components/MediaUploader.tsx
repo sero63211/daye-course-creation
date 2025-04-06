@@ -2,6 +2,7 @@
 import React, { useState, useRef } from "react";
 import { Mic, MicOff } from "lucide-react";
 import { VocabularyItem } from "../utils/vocabularyUtils";
+import storageService from "../services/StorageService"; // Import storageService
 
 interface MediaUploaderProps {
   audioFile: File | null;
@@ -30,14 +31,24 @@ const MediaUploader: React.FC<MediaUploaderProps> = ({
   // Media file handlers
   const handleAudioUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
-      setAudioFile(e.target.files[0]);
+      const file = e.target.files[0];
+      setAudioFile(file);
       setRecordedAudio(null); // Clear any recorded audio
+
+      // Create blob URL and register it with storage service
+      const audioUrl = URL.createObjectURL(file);
+      storageService.registerBlobForUpload(audioUrl, file);
     }
   };
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
-      setImageFile(e.target.files[0]);
+      const file = e.target.files[0];
+      setImageFile(file);
+
+      // Create blob URL and register it with storage service
+      const imageUrl = URL.createObjectURL(file);
+      storageService.registerBlobForUpload(imageUrl, file);
     }
   };
 
@@ -61,6 +72,10 @@ const MediaUploader: React.FC<MediaUploaderProps> = ({
         });
         setRecordedAudio(audioBlob);
         setAudioFile(null); // Clear any uploaded audio
+
+        // Create blob URL and register it with storage service
+        const audioUrl = URL.createObjectURL(audioBlob);
+        storageService.registerBlobForUpload(audioUrl, audioBlob);
       };
 
       mediaRecorder.start();
