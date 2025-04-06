@@ -4,7 +4,6 @@ import IPhonePreview from "./IPhonePreview";
 import { StepType } from "../types/model";
 import { v4 as uuid } from "uuid";
 import { Plus, Trash2, X } from "lucide-react";
-import ContentItemSelector from "./vocabulary-components/ContentItemSelector";
 
 export interface InfoItem {
   id: string;
@@ -39,12 +38,15 @@ interface MatchingPairsStepDialogProps {
   dialogData: any;
   setDialogData: (data: any) => void;
   contentItems: EnhancedContentItem[];
+  stepType?: StepType;
+  isEditMode?: boolean;
 }
 
 const MatchingPairsStepDialog: React.FC<MatchingPairsStepDialogProps> = ({
   dialogData,
   setDialogData,
   contentItems,
+  isEditMode = false,
 }) => {
   // Lokaler State für die ausgewählten Inhalte
   const [selectedContent, setSelectedContent] = useState<EnhancedContentItem[]>(
@@ -68,40 +70,20 @@ const MatchingPairsStepDialog: React.FC<MatchingPairsStepDialogProps> = ({
     pronunciation: "",
   });
 
-  // State for ContentItemSelector
-  const [orderedItems, setOrderedItems] = useState<any[]>([]);
-  const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  const [processingStatus, setProcessingStatus] = useState({
-    isProcessing: false,
-    message: "",
-  });
-
-  // Process content items once
+  // Effect to respond to dialogData changes from parent's ContentItemSelector
   useEffect(() => {
-    if (contentItems.length === 0) return;
-
-    const processed = contentItems.map((item) => ({
-      id: item.id,
-      text: item.text || "",
-      translation: item.translation || "",
-      _examples: item.examples,
-      imageUrl: item.imageUrl,
-      audioUrl: item.audioUrl,
-    }));
-
-    setOrderedItems(processed);
-  }, [contentItems]);
-
-  // Update selected content when selections change
-  useEffect(() => {
-    if (selectedIds.length === 0) return;
-
-    const newSelectedContent = orderedItems.filter((item) =>
-      selectedIds.includes(item.id)
-    );
-
-    setSelectedContent(newSelectedContent);
-  }, [selectedIds, orderedItems]);
+    // Check if we have 'items' data from parent selection
+    if (
+      dialogData.items &&
+      Array.isArray(dialogData.items) &&
+      dialogData.items.length > 0
+    ) {
+      // Update selectedContent with the items
+      setSelectedContent(dialogData.items);
+      // We'll leave the actual pairs to be created in the existing useEffect
+      // that watches selectedContent
+    }
+  }, [dialogData.items]);
 
   // Matching-Paare aus den ausgewählten Inhalten erstellen
   useEffect(() => {
@@ -215,7 +197,23 @@ const MatchingPairsStepDialog: React.FC<MatchingPairsStepDialogProps> = ({
           />
         </label>
 
-        {/* Content selector */}
+        {selectedContent.length > 0 && (
+          <div className="p-3 bg-gray-100 rounded mb-4">
+            <h3 className="font-medium text-black mb-2">
+              Ausgewählte Inhalte:
+            </h3>
+            <ul className="space-y-1">
+              {selectedContent.map((item) => (
+                <li key={item.id} className="flex justify-between text-black">
+                  <span>{item.text}</span>
+                  {item.translation && (
+                    <span className="text-gray-600">{item.translation}</span>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
 
         {/* Manuelle Eingabe von Paaren */}
         <div className="space-y-2">

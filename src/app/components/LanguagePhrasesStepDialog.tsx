@@ -1,46 +1,96 @@
 "use client";
-import React, { useMemo, useState, useRef } from "react";
+import React, { useMemo, useState, useRef, useEffect } from "react";
 import IPhonePreview from "./IPhonePreview";
 import { StepType } from "../types/model";
 import { Plus } from "lucide-react";
-
 export interface LanguagePhrasesModel {
   title: string;
   explanation: string;
   phrases: { foreignText: string; nativeText: string }[];
 }
-
 interface LanguagePhrasesStepDialogProps {
   dialogData: any;
   setDialogData: (data: any) => void;
+  contentItems?: any[];
+  stepType?: StepType;
+  isEditMode?: boolean;
 }
-
 const LanguagePhrasesStepDialog: React.FC<LanguagePhrasesStepDialogProps> = ({
   dialogData,
   setDialogData,
+  contentItems = [],
+  isEditMode = false,
 }) => {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  // Verwende einen separaten textarea für links und rechts vom Trennstrich
+  // Initialize with at least one empty row
   const [foreignPhrases, setForeignPhrases] = useState<string[]>(() => {
-    if (!dialogData.phrases || !Array.isArray(dialogData.phrases)) return [""];
-    return dialogData.phrases.map((p) => p.foreignText || "");
+    if (
+      dialogData.phrases &&
+      Array.isArray(dialogData.phrases) &&
+      dialogData.phrases.length > 0
+    ) {
+      return dialogData.phrases.map((p) => p.foreignText || "");
+    }
+    return [""]; // Default to one empty row
   });
 
   const [nativePhrases, setNativePhrases] = useState<string[]>(() => {
-    if (!dialogData.phrases || !Array.isArray(dialogData.phrases)) return [""];
-    return dialogData.phrases.map((p) => p.nativeText || "");
+    if (
+      dialogData.phrases &&
+      Array.isArray(dialogData.phrases) &&
+      dialogData.phrases.length > 0
+    ) {
+      return dialogData.phrases.map((p) => p.nativeText || "");
+    }
+    return [""]; // Default to one empty row
   });
 
-  // Aktualisiere dialogData, wenn sich die Phrasen ändern
-  const updateDialogData = () => {
-    const maxLength = Math.max(foreignPhrases.length, nativePhrases.length);
+  // Ensure dialogData has initial phrases if empty
+  useEffect(() => {
+    if (
+      !dialogData.phrases ||
+      !Array.isArray(dialogData.phrases) ||
+      dialogData.phrases.length === 0
+    ) {
+      setDialogData({
+        ...dialogData,
+        phrases: [{ foreignText: "", nativeText: "" }],
+      });
+    }
+  }, []);
+
+  // Effect to respond to dialogData changes from parent's ContentItemSelector
+  useEffect(() => {
+    // When dialogData.mainText changes due to content selection in parent
+    if (dialogData.mainText && dialogData.secondaryText) {
+      // Update the first phrase with the selected content
+      const newForeignPhrases = [...foreignPhrases];
+      newForeignPhrases[0] = dialogData.mainText;
+      setForeignPhrases(newForeignPhrases);
+
+      // Update the translation
+      const newNativePhrases = [...nativePhrases];
+      newNativePhrases[0] = dialogData.secondaryText;
+      setNativePhrases(newNativePhrases);
+
+      // Make sure to update the dialog data with these phrases
+      updateDialogData(newForeignPhrases, newNativePhrases);
+    }
+  }, [dialogData.mainText, dialogData.secondaryText]);
+
+  // Update dialogData when phrases change
+  const updateDialogData = (
+    foreign = foreignPhrases,
+    native = nativePhrases
+  ) => {
+    const maxLength = Math.max(foreign.length, native.length);
     const phrases = [];
 
     for (let i = 0; i < maxLength; i++) {
       phrases.push({
-        foreignText: foreignPhrases[i] || "",
-        nativeText: nativePhrases[i] || "",
+        foreignText: foreign[i] || "",
+        nativeText: native[i] || "",
       });
     }
 
@@ -52,7 +102,7 @@ const LanguagePhrasesStepDialog: React.FC<LanguagePhrasesStepDialogProps> = ({
     newForeignPhrases[index] = value;
     setForeignPhrases(newForeignPhrases);
 
-    // Stelle sicher, dass nativePhrases lang genug ist
+    // Ensure nativePhrases is long enough
     if (nativePhrases.length <= index) {
       const newNativePhrases = [...nativePhrases];
       while (newNativePhrases.length <= index) {
@@ -61,7 +111,7 @@ const LanguagePhrasesStepDialog: React.FC<LanguagePhrasesStepDialogProps> = ({
       setNativePhrases(newNativePhrases);
     }
 
-    updateDialogData();
+    updateDialogData(newForeignPhrases, nativePhrases);
   };
 
   const handleNativeChange = (index: number, value: string) => {
@@ -69,7 +119,7 @@ const LanguagePhrasesStepDialog: React.FC<LanguagePhrasesStepDialogProps> = ({
     newNativePhrases[index] = value;
     setNativePhrases(newNativePhrases);
 
-    // Stelle sicher, dass foreignPhrases lang genug ist
+    // Ensure foreignPhrases is long enough
     if (foreignPhrases.length <= index) {
       const newForeignPhrases = [...foreignPhrases];
       while (newForeignPhrases.length <= index) {
@@ -78,13 +128,15 @@ const LanguagePhrasesStepDialog: React.FC<LanguagePhrasesStepDialogProps> = ({
       setForeignPhrases(newForeignPhrases);
     }
 
-    updateDialogData();
+    updateDialogData(foreignPhrases, newNativePhrases);
   };
 
   const addNewRow = () => {
-    setForeignPhrases([...foreignPhrases, ""]);
-    setNativePhrases([...nativePhrases, ""]);
-    updateDialogData();
+    const newForeign = [...foreignPhrases, ""];
+    const newNative = [...nativePhrases, ""];
+    setForeignPhrases(newForeign);
+    setNativePhrases(newNative);
+    updateDialogData(newForeign, newNative);
   };
 
   const removeRow = (index: number) => {
@@ -98,7 +150,7 @@ const LanguagePhrasesStepDialog: React.FC<LanguagePhrasesStepDialogProps> = ({
     newNativePhrases.splice(index, 1);
     setNativePhrases(newNativePhrases);
 
-    updateDialogData();
+    updateDialogData(newForeignPhrases, newNativePhrases);
   };
 
   // Use memoized preview data to avoid unnecessary renders
@@ -113,7 +165,7 @@ const LanguagePhrasesStepDialog: React.FC<LanguagePhrasesStepDialogProps> = ({
 
   return (
     <div className="flex flex-col md:flex-row gap-6">
-      {/* Linke Seite: Formular */}
+      {/* Left side: Form */}
       <div className="w-full md:w-3/5 space-y-6 bg-white p-4 rounded-lg">
         <div className="space-y-4">
           <label className="block text-black">
@@ -139,7 +191,6 @@ const LanguagePhrasesStepDialog: React.FC<LanguagePhrasesStepDialogProps> = ({
               placeholder="Erklärung oder Kontext"
             />
           </label>
-
           <div className="block">
             <div className="flex justify-between items-center mb-2">
               <label className="block text-black">Phrasen:</label>
@@ -152,9 +203,8 @@ const LanguagePhrasesStepDialog: React.FC<LanguagePhrasesStepDialogProps> = ({
                 Neue Zeile
               </button>
             </div>
-
             <div className="border rounded overflow-hidden">
-              {/* Tabellenkopf */}
+              {/* Table header */}
               <div className="flex border-b bg-gray-100">
                 <div className="w-1/2 p-2 font-medium text-black border-r">
                   Fremdtext
@@ -163,11 +213,10 @@ const LanguagePhrasesStepDialog: React.FC<LanguagePhrasesStepDialogProps> = ({
                   Deutscher Text
                 </div>
               </div>
-
-              {/* Tabellenzeilen */}
+              {/* Table rows */}
               {foreignPhrases.map((phrase, index) => (
                 <div key={index} className="flex border-b last:border-b-0">
-                  {/* Linke Spalte (Fremdtext) */}
+                  {/* Left column (Foreign text) */}
                   <div className="w-1/2 p-1 border-r">
                     <input
                       type="text"
@@ -179,8 +228,7 @@ const LanguagePhrasesStepDialog: React.FC<LanguagePhrasesStepDialogProps> = ({
                       placeholder="Fremdtext"
                     />
                   </div>
-
-                  {/* Rechte Spalte (Deutscher Text) */}
+                  {/* Right column (German text) */}
                   <div className="w-1/2 p-1 relative">
                     <input
                       type="text"
@@ -191,8 +239,7 @@ const LanguagePhrasesStepDialog: React.FC<LanguagePhrasesStepDialogProps> = ({
                       className="text-black w-full p-1 border-0 focus:outline-none focus:ring-1 focus:ring-blue-500"
                       placeholder="Deutscher Text"
                     />
-
-                    {/* Löschen-Button (außer bei der ersten Zeile) */}
+                    {/* Delete button (except for the first row) */}
                     {index > 0 && (
                       <button
                         type="button"
@@ -207,15 +254,13 @@ const LanguagePhrasesStepDialog: React.FC<LanguagePhrasesStepDialogProps> = ({
                 </div>
               ))}
             </div>
-
             <p className="text-sm text-gray-500 mt-1">
               Gib den Fremdtext links und den deutschen Text rechts ein.
             </p>
           </div>
         </div>
       </div>
-
-      {/* Rechte Seite: Vorschau */}
+      {/* Right side: Preview */}
       <div className="w-full md:w-2/5 flex justify-center">
         <div className="sticky top-8">
           <IPhonePreview

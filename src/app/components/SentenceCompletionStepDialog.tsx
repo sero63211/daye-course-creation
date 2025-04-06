@@ -10,7 +10,6 @@ import IPhonePreview from "./IPhonePreview";
 import { StepType } from "../types/model";
 import { v4 as uuid } from "uuid";
 import { Plus, Upload, Trash2, X, Volume2, Lightbulb } from "lucide-react";
-import ContentItemSelector from "./vocabulary-components/ContentItemSelector";
 
 interface InfoItem {
   id: string;
@@ -45,11 +44,13 @@ interface SentenceCompletionStepDialogProps {
   dialogData: any;
   setDialogData: (data: any) => void;
   contentItems: ContentItem[];
+  stepType?: StepType;
+  isEditMode?: boolean;
 }
 
 const SentenceCompletionStepDialog: React.FC<
   SentenceCompletionStepDialogProps
-> = ({ dialogData, setDialogData, contentItems }) => {
+> = ({ dialogData, setDialogData, contentItems, isEditMode = false }) => {
   // State for selected sentence and blank word
   const [selectedSentence, setSelectedSentence] = useState<string | null>(
     dialogData.question || null
@@ -58,14 +59,6 @@ const SentenceCompletionStepDialog: React.FC<
     dialogData.correctAnswer || null
   );
   const [customSentence, setCustomSentence] = useState<string>("");
-
-  // State for ContentItemSelector
-  const [orderedItems, setOrderedItems] = useState<any[]>([]);
-  const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  const [processingStatus, setProcessingStatus] = useState({
-    isProcessing: false,
-    message: "",
-  });
 
   // Zusätzliche Formulardaten (Instruktionstext, Bild, Audio, Fakten)
   const [formData, setFormData] = useState({
@@ -82,79 +75,27 @@ const SentenceCompletionStepDialog: React.FC<
     pronunciation: "",
   });
 
-  // Process content items once
-  // Process content items once with automatic type detection
+  // New effect to respond to dialogData changes from parent's ContentItemSelector
   useEffect(() => {
-    if (contentItems.length === 0) return;
+    // Check if we have mainText data (this would be set by parent's selection)
+    if (dialogData.mainText) {
+      setSelectedSentence(dialogData.mainText);
 
-    // Log the incoming content items
-    console.log("Original content items:", contentItems);
-
-    const processed = contentItems.map((item) => {
-      // Create the base processed item
-      const processedItem: any = {
-        id: item.id,
-        text: item.text || "",
-        translation: item.translation || "",
-        _examples: item.examples,
-        imageUrl: item.imageUrl,
-        audioUrl: item.audioUrl,
-      };
-
-      // First check if the item already has type information
-      if ((item as any).type) {
-        processedItem.type = (item as any).type;
+      // If the parent selection included media, update those too
+      if (dialogData.imageUrl) {
+        setFormData((prev) => ({ ...prev, imageUrl: dialogData.imageUrl }));
+      }
+      if (dialogData.soundFileName) {
+        setFormData((prev) => ({
+          ...prev,
+          soundFileName: dialogData.soundFileName,
+        }));
       }
 
-      if ((item as any).contentType) {
-        processedItem.contentType = (item as any).contentType;
-      }
-
-      // If no type information exists, try to detect the type based on content
-      if (!processedItem.type && !processedItem.contentType) {
-        // Heuristic: If the text contains spaces, it's likely a sentence
-        // Otherwise, it's likely a vocabulary item
-        if (processedItem.text.includes(" ")) {
-          processedItem.type = "sentence";
-          processedItem.contentType = "sentence";
-          console.log(`Auto-detected "${processedItem.text}" as a sentence`);
-        } else {
-          processedItem.type = "vocabulary";
-          processedItem.contentType = "vocabulary";
-          console.log(`Auto-detected "${processedItem.text}" as vocabulary`);
-        }
-      }
-
-      return processedItem;
-    });
-
-    console.log("Processed items with type detection:", processed);
-    setOrderedItems(processed);
-  }, [contentItems]);
-
-  // Update when ContentItemSelector selection changes
-  useEffect(() => {
-    if (selectedIds.length === 0) return;
-
-    const selectedItem = orderedItems.find(
-      (item) => item.id === selectedIds[0]
-    );
-    if (!selectedItem) return;
-
-    setSelectedSentence(selectedItem.text);
-    setBlankWord(null); // Reset blank word when selecting new sentence
-
-    // Update media if available
-    if (selectedItem.imageUrl) {
-      setFormData((prev) => ({ ...prev, imageUrl: selectedItem.imageUrl }));
+      // Reset blank word since we have a new sentence
+      setBlankWord(null);
     }
-    if (selectedItem.audioUrl) {
-      setFormData((prev) => ({
-        ...prev,
-        soundFileName: selectedItem.audioUrl,
-      }));
-    }
-  }, [selectedIds, orderedItems]);
+  }, [dialogData]);
 
   // Wenn ein Satz ausgewählt oder eingegeben wurde, speichere ihn und teile ihn in Wörter
   useEffect(() => {
@@ -300,8 +241,6 @@ const SentenceCompletionStepDialog: React.FC<
     <div className="flex flex-col md:flex-row gap-6">
       {/* Linke Seite: Konfiguration */}
       <div className="w-full md:w-3/5">
-        {/* Content selector */}
-
         {/* Satzauswahl und -eingabe */}
         <div className="p-6 bg-white rounded-lg mb-6">
           <h2 className="text-xl font-bold text-center mb-4 text-black">

@@ -4,7 +4,6 @@ import { StepType } from "../types/model";
 import { Info } from "lucide-react";
 
 // Import components
-import ContentItemSelector from "./vocabulary-components/ContentItemSelector";
 import FactsManager from "./vocabulary-components/FactsManager";
 import IPhonePreview from "./IPhonePreview";
 
@@ -44,54 +43,37 @@ const ListenVocabularyStepDialog: React.FC<ListenVocabularyStepDialogProps> = ({
     facts: dialogData?.facts || [],
   });
 
-  // Processed content items for selector
-  const [orderedItems, setOrderedItems] = useState<ContentItem[]>([]);
-
-  // Current selection state
-  const [selectedIds, setSelectedIds] = useState<string[]>([]);
-
-  // Status for processing
-  const [processingStatus, setProcessingStatus] = useState({
-    isProcessing: false,
-    message: "",
-  });
-
-  // Process content items once
+  // Effect to respond to dialogData changes from parent's ContentItemSelector
   useEffect(() => {
-    if (contentItems.length === 0) return;
-
-    const processed = contentItems.map((item) => ({
-      id: item.id,
-      text: item.text || "",
-      translation: item.translation || "",
-      _examples: item.examples,
-      imageUrl: item.imageUrl,
-      audioUrl: item.audioUrl,
-      type: item.type,
-      contentType: item.contentType,
-    }));
-
-    setOrderedItems(processed);
-  }, [contentItems]);
-
-  // Set initial selection if in edit mode and we have data
-  useEffect(() => {
+    // Check if we have data from parent's content selection
     if (
-      isEditMode &&
-      dialogData &&
-      dialogData.mainText &&
-      orderedItems.length > 0
+      dialogData.items &&
+      Array.isArray(dialogData.items) &&
+      dialogData.items.length > 0
     ) {
-      // Find matching item once on initial load
-      const matchingItem = orderedItems.find(
-        (item) => item.text === dialogData.mainText
-      );
+      const selectedItem = dialogData.items[0];
 
-      if (matchingItem) {
-        setSelectedIds([matchingItem.id]);
+      if (!isEditMode) {
+        // Only update text fields if not in edit mode
+        setFormState((prev) => ({
+          ...prev,
+          mainText: selectedItem.text || "",
+          secondaryText: selectedItem.translation || "",
+          // Always set media fields from the selected item
+          imageUrl: selectedItem.imageUrl || "",
+          soundFileName: selectedItem.audioUrl || "",
+        }));
+      } else {
+        // In edit mode, only update media fields
+        setFormState((prev) => ({
+          ...prev,
+          // Only update media fields
+          imageUrl: selectedItem.imageUrl || "",
+          soundFileName: selectedItem.audioUrl || "",
+        }));
       }
     }
-  }, [isEditMode, dialogData, orderedItems]);
+  }, [dialogData.items, isEditMode]);
 
   // Handle form field changes
   const handleInputChange = (
@@ -100,42 +82,6 @@ const ListenVocabularyStepDialog: React.FC<ListenVocabularyStepDialogProps> = ({
     const { name, value } = e.target;
     setFormState((prev) => ({ ...prev, [name]: value }));
   };
-
-  // Get selected items
-  const selectedItems = useMemo(() => {
-    return orderedItems.filter((item) => selectedIds.includes(item.id));
-  }, [orderedItems, selectedIds]);
-
-  // When selection changes, clear the last selection's state to prevent media carryover
-  useEffect(() => {
-    // When selection changes, first reset media fields
-    if (selectedIds.length > 0) {
-      console.log("Selection changed, resetting media fields");
-
-      // Get the newly selected item
-      const selectedItem = selectedItems[0];
-
-      // Only update main text fields if not in edit mode
-      if (!isEditMode) {
-        setFormState((prev) => ({
-          ...prev,
-          mainText: selectedItem?.text || "",
-          secondaryText: selectedItem?.translation || "",
-          // Always set media fields directly from the item (not using || operator)
-          imageUrl: selectedItem?.imageUrl || "",
-          soundFileName: selectedItem?.audioUrl || "",
-        }));
-      } else {
-        // In edit mode, only update the media fields
-        setFormState((prev) => ({
-          ...prev,
-          // Always set media fields directly from the item (not using || operator)
-          imageUrl: selectedItem?.imageUrl || "",
-          soundFileName: selectedItem?.audioUrl || "",
-        }));
-      }
-    }
-  }, [selectedIds, selectedItems, isEditMode]);
 
   // Update dialog data on form changes
   useEffect(() => {
@@ -169,9 +115,7 @@ const ListenVocabularyStepDialog: React.FC<ListenVocabularyStepDialogProps> = ({
           </div>
         )}
 
-        {/* Content selector with specific allowed types */}
-
-        {selectedIds.length > 0 && (
+        {formState.mainText && (
           <div className="mb-4 p-3 bg-gray-100 rounded text-black">
             <div className="font-medium">Ausgewählter Inhalt:</div>
             <div>{formState.mainText || "Keine Auswahl"}</div>

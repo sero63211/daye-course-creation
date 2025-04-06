@@ -76,7 +76,7 @@ const StepDialog: React.FC<StepDialogProps> = ({
     }
   }, [isOpen, initialData, isEditMode]);
 
-  // Effect for content selection - FIXED to avoid infinite loop
+  // Effect for content selection - IMPROVED to handle all dialog types
   useEffect(() => {
     if (selectedContentIds.length === 0) return;
 
@@ -112,14 +112,38 @@ const StepDialog: React.FC<StepDialogProps> = ({
         case StepType.LanguagePhrases:
           updatedData.mainText = selectedItem.text || "";
           updatedData.secondaryText = selectedItem.translation || "";
+          // Also pass along media if available
+          if (selectedItem.imageUrl) {
+            updatedData.imageUrl = selectedItem.imageUrl;
+          }
+          if (selectedItem.audioUrl) {
+            updatedData.soundFileName = selectedItem.audioUrl;
+          }
           break;
 
         case StepType.ListenVocabulary:
         case StepType.MatchingPairs:
-          updatedData.items = [selectedItem]; // Example - adjust based on your needs
+          // Pass the whole item for vocabulary-type exercises
+          updatedData.items = [selectedItem];
           break;
 
-        // Add other cases as needed
+        case StepType.LanguageQuestion:
+          // For question types, set the question text and options
+          updatedData.questionText = selectedItem.text || "";
+          updatedData.correctOption = selectedItem.translation || "";
+          if (selectedItem.imageUrl) {
+            updatedData.imageUrl = selectedItem.imageUrl;
+          }
+          if (selectedItem.audioUrl) {
+            updatedData.soundFileName = selectedItem.audioUrl;
+          }
+          break;
+
+        default:
+          // For other types, pass the basic content
+          updatedData.mainText = selectedItem.text || "";
+          updatedData.secondaryText = selectedItem.translation || "";
+          break;
       }
 
       return {
@@ -177,37 +201,29 @@ const StepDialog: React.FC<StepDialogProps> = ({
     onSave(newStep);
   };
 
-  const handleClose = (e: React.MouseEvent) => {
-    e.stopPropagation();
+  const handleClose = (e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
 
+    // Reset the selected content IDs
     setSelectedContentIds([]);
 
+    // Reset dialog data to default state
     const defaultData = getEmptyModelForStepType(stepType, contentItems);
     setDialogData({
       ...defaultData,
       isComplete: isDataCompleteForStepType(stepType, defaultData),
     });
 
+    // Call the original onClose handler
     onClose();
   };
 
   const canSave = dialogData.isComplete !== false;
+
   const handleBackdropClick = (e: React.MouseEvent) => {
-    if (e.target === e.currentTarget) {
-      // Reset the selected content IDs
-      setSelectedContentIds([]);
-
-      // Reset dialog data to default state
-      const defaultData = getEmptyModelForStepType(stepType, contentItems);
-      setDialogData({
-        ...defaultData,
-        isComplete: isDataCompleteForStepType(stepType, defaultData),
-      });
-
-      // Call the original onClose handler
-      onClose();
-    }
+    if (e.target === e.currentTarget) handleClose();
   };
+
   const dialogTitle = isEditMode ? "Schritt bearbeiten" : "Schritt erstellen";
   const currentConfig = dialogContentSelectorConfig[stepType] || {
     renderSelector: false,

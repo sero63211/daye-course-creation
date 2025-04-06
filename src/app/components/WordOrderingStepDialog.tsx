@@ -4,7 +4,6 @@ import IPhonePreview from "./IPhonePreview";
 import { StepType } from "../types/model";
 import { v4 as uuid } from "uuid";
 import { Upload, Trash2, X, Plus } from "lucide-react";
-import ContentItemSelector from "./vocabulary-components/ContentItemSelector";
 
 interface InfoItem {
   id: string;
@@ -34,21 +33,16 @@ interface WordOrderingStepDialogProps {
     imageUrl?: string;
     audioUrl?: string;
   }[];
+  stepType?: StepType;
+  isEditMode?: boolean;
 }
 
 const WordOrderingStepDialog: React.FC<WordOrderingStepDialogProps> = ({
   dialogData,
   setDialogData,
   contentItems = [],
+  isEditMode = false,
 }) => {
-  // State for ContentItemSelector
-  const [orderedItems, setOrderedItems] = useState<any[]>([]);
-  const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  const [processingStatus, setProcessingStatus] = useState({
-    isProcessing: false,
-    message: "",
-  });
-
   // State für ausgewählten Satz oder eigenen Satz
   const [selectedSentence, setSelectedSentence] = useState<string>(
     dialogData.correctSentence || ""
@@ -71,41 +65,21 @@ const WordOrderingStepDialog: React.FC<WordOrderingStepDialogProps> = ({
     pronunciation: "",
   });
 
-  // Process content items once
+  // New effect to respond to dialogData changes from parent's ContentItemSelector
   useEffect(() => {
-    if (contentItems.length === 0) return;
+    // Check if we have mainText data (this would be set by parent's selection)
+    if (dialogData.mainText) {
+      setSelectedSentence(dialogData.mainText);
 
-    const processed = contentItems.map((item) => ({
-      id: item.id,
-      text: item.text || "",
-      translation: item.translation || "",
-      _examples: item.examples,
-      imageUrl: item.imageUrl,
-      audioUrl: item.audioUrl,
-    }));
-
-    setOrderedItems(processed);
-  }, [contentItems]);
-
-  // Update when ContentItemSelector selection changes
-  useEffect(() => {
-    if (selectedIds.length === 0) return;
-
-    const selectedItem = orderedItems.find(
-      (item) => item.id === selectedIds[0]
-    );
-    if (!selectedItem) return;
-
-    setSelectedSentence(selectedItem.text);
-
-    // Update media if available
-    if (selectedItem.imageUrl) {
-      setImageUrl(selectedItem.imageUrl);
+      // If the parent selection included media, update those too
+      if (dialogData.imageUrl) {
+        setImageUrl(dialogData.imageUrl);
+      }
+      if (dialogData.soundFileName) {
+        setSoundFileName(dialogData.soundFileName);
+      }
     }
-    if (selectedItem.audioUrl) {
-      setSoundFileName(selectedItem.audioUrl);
-    }
-  }, [selectedIds, orderedItems]);
+  }, [dialogData]);
 
   const imageInputRef = useRef<HTMLInputElement>(null);
   const audioInputRef = useRef<HTMLInputElement>(null);
@@ -215,9 +189,14 @@ const WordOrderingStepDialog: React.FC<WordOrderingStepDialogProps> = ({
     <div className="flex flex-col md:flex-row gap-6">
       {/* Linke Seite: Konfiguration */}
       <div className="w-full md:w-3/5 space-y-6 bg-white p-4 rounded-lg">
-        {/* Content selector */}
-
         <div>
+          {selectedSentence && (
+            <div className="mb-4 p-3 bg-gray-100 rounded">
+              <p className="font-medium text-black">Ausgewählter Satz:</p>
+              <p className="text-black">{selectedSentence}</p>
+            </div>
+          )}
+
           <div className="my-4 text-center text-black font-medium">oder</div>
 
           <div>

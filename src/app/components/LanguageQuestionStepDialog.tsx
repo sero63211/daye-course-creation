@@ -39,12 +39,15 @@ interface LanguageQuestionStepDialogProps {
   dialogData: DialogData;
   setDialogData: (data: DialogData) => void;
   contentItems: EnhancedContentItem[];
+  stepType?: StepType;
+  isEditMode?: boolean;
 }
 
 const LanguageQuestionStepDialog: React.FC<LanguageQuestionStepDialogProps> = ({
   dialogData,
   setDialogData,
   contentItems,
+  isEditMode = false,
 }) => {
   // Lokaler State
   const [questionText, setQuestionText] = useState<string>(
@@ -74,6 +77,33 @@ const LanguageQuestionStepDialog: React.FC<LanguageQuestionStepDialogProps> = ({
     usage: "",
     pronunciation: "",
   });
+
+  // Effect to respond to dialogData changes from parent's ContentItemSelector
+  useEffect(() => {
+    // For question types, the parent sets questionText and correctOption
+    if (dialogData.questionText && dialogData.questionText !== questionText) {
+      setQuestionText(dialogData.questionText);
+    }
+
+    if (
+      dialogData.correctOption &&
+      dialogData.correctOption !== correctOption
+    ) {
+      setCorrectOption(dialogData.correctOption);
+    }
+
+    // If the parent selection included media, update those too
+    if (dialogData.imageUrl && dialogData.imageUrl !== imageUrl) {
+      setImageUrl(dialogData.imageUrl);
+    }
+
+    if (
+      dialogData.soundFileName &&
+      dialogData.soundFileName !== soundFileName
+    ) {
+      setSoundFileName(dialogData.soundFileName);
+    }
+  }, [dialogData, questionText, correctOption, imageUrl, soundFileName]);
 
   // Refs für Datei-Uploads
   const imageInputRef = useRef<HTMLInputElement>(null);
