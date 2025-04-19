@@ -255,7 +255,17 @@ export const getEmptyModelForStepType = (type: StepType, items: any[] = []) => {
       return {}; // Standardmäßig ein leeres Objekt zurückgeben
   }
 };
-
+export const getEmptyModelForTable = () => {
+  return {
+    text: JSON.stringify({
+      headers: ["Original", "Übersetzung"],
+      rows: [],
+    }),
+    translation: "",
+    type: "table",
+    contentType: "table",
+  };
+};
 /**
  * Gibt einen benutzerfreundlichen Namen für jeden StepType zurück
  */
@@ -283,16 +293,6 @@ export const getStepTypeName = (type: StepType): string => {
       return "Chat ausfüllen";
     case StepType.Completed:
       return "Abschluss";
-    case StepType.PronunciationPractice:
-      return "Ausspracheübung";
-    case StepType.GrammarExplanation:
-      return "Grammatikerklärung";
-    case StepType.VocabularyMatching:
-      return "Vokabeln zuordnen";
-    case StepType.AudioComprehension:
-      return "Hörverstehen";
-    case StepType.WritingExercise:
-      return "Schreibübung";
     default:
       return type;
   }
@@ -320,13 +320,10 @@ export const isDataCompleteForStepType = (
   switch (type) {
     case StepType.ListenVocabulary:
       return !!data.mainText && !!data.secondaryText;
-
     case StepType.FillInTheBlanks:
       return !!data.question && !!data.correctAnswer;
-
     case StepType.TrueFalse:
       return !!data.statement && !!data.correctAnswer;
-
     case StepType.LanguageQuestion:
       return (
         !!data.questionText &&
@@ -334,14 +331,12 @@ export const isDataCompleteForStepType = (
         Array.isArray(data.options) &&
         data.options.length > 0
       );
-
     case StepType.SentenceCompletion:
       return (
         !!data.instructionText &&
         Array.isArray(data.sentenceParts) &&
         data.sentenceParts.length > 0
       );
-
     case StepType.WordOrdering:
       return (
         !!data.instructionText &&
@@ -349,28 +344,39 @@ export const isDataCompleteForStepType = (
         Array.isArray(data.wordOptions) &&
         data.wordOptions.length > 0
       );
-
     case StepType.LessonInformation:
       return !!data.title && !!data.mainText;
-
     case StepType.LanguagePhrases:
       return (
         !!data.title && Array.isArray(data.phrases) && data.phrases.length > 0
       );
-
     case StepType.MatchingPairs:
       return !!data.title && Array.isArray(data.pairs) && data.pairs.length > 0;
-
     case StepType.FillInChat:
       return (
         !!data.title &&
         Array.isArray(data.conversations) &&
         data.conversations.length > 0
       );
-
     case StepType.Completed:
       return !!data.completionMessage;
-
+    // Unterstützung für Tabellen hinzufügen
+    case StepType.Table:
+      try {
+        // Prüfen, ob die Tabellendaten korrekt formatiert sind
+        if (!data.text) return false;
+        const tableData = JSON.parse(data.text);
+        return (
+          tableData &&
+          Array.isArray(tableData.headers) &&
+          tableData.headers.length >= 2 &&
+          Array.isArray(tableData.rows) &&
+          tableData.rows.length > 0
+        );
+      } catch (error) {
+        console.error("Error validating table data:", error);
+        return false;
+      }
     default:
       return true;
   }

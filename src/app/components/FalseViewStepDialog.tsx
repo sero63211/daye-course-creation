@@ -180,19 +180,6 @@ const FalseViewStepDialog: React.FC<FalseViewStepDialogProps> = ({
           </div>
 
           <div>
-            <label className="block text-black mb-2" htmlFor="translation">
-              Übersetzung / Zusatzinfo:
-            </label>
-            <textarea
-              id="translation"
-              value={translation}
-              onChange={(e) => setTranslation(e.target.value)}
-              className="w-full p-2 border border-gray-300 rounded text-black h-24"
-              placeholder="Zusätzliche Hinweise oder Übersetzung..."
-            />
-          </div>
-
-          <div>
             <label className="block text-black mb-2" htmlFor="imageUrl">
               Bild:
             </label>

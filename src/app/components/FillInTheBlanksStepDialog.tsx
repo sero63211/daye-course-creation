@@ -5,6 +5,118 @@ import IPhonePreview from "./IPhonePreview";
 import { StepType } from "../types/model";
 import { v4 as uuid } from "uuid";
 
+// Utility function to generate distractor words
+function generateDistractors(word: string, count: number = 2): string[] {
+  const distractors: string[] = [];
+  const vowels = ["a", "e", "i", "o", "u", "ä", "ö", "ü"];
+  const accents = [
+    "á",
+    "à",
+    "â",
+    "é",
+    "è",
+    "ê",
+    "í",
+    "ì",
+    "î",
+    "ó",
+    "ò",
+    "ô",
+    "ú",
+    "ù",
+    "û",
+  ];
+
+  // Helper function to swap characters in a string
+  const swapLetters = (str: string, i: number, j: number): string => {
+    const chars = str.split("");
+    [chars[i], chars[j]] = [chars[j], chars[i]];
+    return chars.join("");
+  };
+
+  // Helper function to replace a character at a specific index
+  const replaceAt = (
+    str: string,
+    index: number,
+    replacement: string
+  ): string => {
+    return str.substring(0, index) + replacement + str.substring(index + 1);
+  };
+
+  // Generate distractors until we have enough
+  while (distractors.length < count) {
+    // Make a copy of the original word
+    let distractor = word;
+
+    // Randomly choose a modification strategy
+    const strategy = Math.floor(Math.random() * 5);
+
+    switch (strategy) {
+      case 0: // Swap two adjacent letters
+        if (word.length >= 3) {
+          const pos = Math.floor(Math.random() * (word.length - 1));
+          distractor = swapLetters(distractor, pos, pos + 1);
+        }
+        break;
+
+      case 1: // Change a vowel
+        const vowelPositions = [...word]
+          .map((char, i) => (vowels.includes(char.toLowerCase()) ? i : -1))
+          .filter((i) => i !== -1);
+
+        if (vowelPositions.length > 0) {
+          const pos =
+            vowelPositions[Math.floor(Math.random() * vowelPositions.length)];
+          const newVowel = vowels[Math.floor(Math.random() * vowels.length)];
+          distractor = replaceAt(distractor, pos, newVowel);
+        }
+        break;
+
+      case 2: // Add an accent to a letter
+        const letterPositions = [...word]
+          .map((char, i) => (/[a-zA-Z]/.test(char) ? i : -1))
+          .filter((i) => i !== -1);
+
+        if (letterPositions.length > 0) {
+          const pos =
+            letterPositions[Math.floor(Math.random() * letterPositions.length)];
+          const currentChar = word[pos].toLowerCase();
+
+          // Map vowels to accented versions
+          if (vowels.includes(currentChar)) {
+            const accentedChar =
+              accents[Math.floor(Math.random() * accents.length)];
+            distractor = replaceAt(distractor, pos, accentedChar);
+          }
+        }
+        break;
+
+      case 3: // Add a letter
+        if (word.length > 0) {
+          const pos = Math.floor(Math.random() * (word.length + 1));
+          const letters = "abcdefghijklmnopqrstuvwxyzäöü";
+          const newLetter = letters[Math.floor(Math.random() * letters.length)];
+          distractor = word.substring(0, pos) + newLetter + word.substring(pos);
+        }
+        break;
+
+      case 4: // Remove a letter
+        if (word.length > 3) {
+          const pos = Math.floor(Math.random() * word.length);
+          distractor = word.substring(0, pos) + word.substring(pos + 1);
+        }
+        break;
+    }
+
+    // Add to distractors if it's not the original word and not already in the list
+    if (distractor !== word && !distractors.includes(distractor)) {
+      distractors.push(distractor);
+    }
+  }
+
+  return distractors;
+}
+
 interface InfoItem {
   id: string;
   term: string;
@@ -45,17 +157,17 @@ const FillInTheBlanksStepDialog: React.FC<FillInTheBlanksStepDialogProps> = ({
   contentItems = [],
   isEditMode = false,
 }) => {
-  // Lokaler State für alle Felder
+  // Local state for fields
   const [sentence, setSentence] = useState<string>(dialogData.question || "");
   const [blankWord, setBlankWord] = useState<string | null>(
     dialogData.correctAnswer || null
   );
   const [distractorWords, setDistractorWords] = useState<string[]>(
-    dialogData.options && dialogData.options.length > 0
+    isEditMode && dialogData.options && dialogData.options.length > 0
       ? dialogData.options.filter(
           (word: string) => word !== dialogData.correctAnswer
         )
-      : ["", ""]
+      : ["", ""] // Always start with empty distractor words if not in edit mode
   );
   const [translation, setTranslation] = useState<string>(
     dialogData.translation || ""
@@ -76,12 +188,20 @@ const FillInTheBlanksStepDialog: React.FC<FillInTheBlanksStepDialogProps> = ({
     pronunciation: "",
   });
 
-  // Refs für Datei-Uploads
+  // Refs for file uploads
   const imageInputRef = useRef<HTMLInputElement>(null);
   const audioInputRef = useRef<HTMLInputElement>(null);
 
-  // New effect to respond to dialogData changes from parent's ContentItemSelector
+  // Ref to prevent circular updates
+  const isUpdatingDialogData = useRef(false);
+  const lastUpdateTimeRef = useRef(0);
+  const isFirstRenderRef = useRef(true);
+
+  // Keep the first useEffect as is - this is essential for the ContentItemSelector to work
   useEffect(() => {
+    // Only process if this is not a result of our own update
+    if (isUpdatingDialogData.current) return;
+
     // Check if we have mainText data (this would be set by parent's selection)
     if (dialogData.mainText) {
       setSentence(dialogData.mainText);
@@ -97,14 +217,36 @@ const FillInTheBlanksStepDialog: React.FC<FillInTheBlanksStepDialogProps> = ({
 
       // Reset blank word since we have a new sentence
       setBlankWord(null);
-    }
-  }, [dialogData]);
 
-  // Update dialogData, sobald sich Konfigurationswerte ändern
+      // IMPORTANT: Always ensure distractorWords are manually entered
+      // Never auto-fill them with vocabulary, always use empty strings if not in edit mode
+      if (!isEditMode) {
+        // Always reset to empty distractor words when new content is selected
+        setDistractorWords(["", ""]);
+      }
+    }
+  }, [dialogData, isEditMode]); // Keep these dependencies - needed for content selection
+
+  // This is the effect that updates the parent's dialogData when our local state changes
+  // We're making changes to this effect to prevent circular updates
   useEffect(() => {
+    // Skip initial render
+    if (isFirstRenderRef.current) {
+      isFirstRenderRef.current = false;
+      return;
+    }
+
+    // Skip if already updating or updates are too frequent (throttle)
+    if (
+      isUpdatingDialogData.current ||
+      Date.now() - lastUpdateTimeRef.current < 100
+    )
+      return;
+
     const allDistractorsValid = distractorWords.every(
       (word) => word.trim() !== ""
     );
+
     const isComplete =
       !!sentence &&
       !!blankWord &&
@@ -115,7 +257,8 @@ const FillInTheBlanksStepDialog: React.FC<FillInTheBlanksStepDialogProps> = ({
       ? [blankWord, ...distractorWords.filter((w) => w.trim() !== "")]
       : [];
 
-    setDialogData({
+    const newDialogData = {
+      // Use spread for all current dialog data except what we're explicitly changing
       ...dialogData,
       question: sentence || "",
       correctAnswer: blankWord || "",
@@ -126,7 +269,27 @@ const FillInTheBlanksStepDialog: React.FC<FillInTheBlanksStepDialogProps> = ({
       pronunciationTip,
       facts,
       isComplete,
-    });
+    };
+
+    // Only update if something actually changed
+    const hasChanged =
+      JSON.stringify(newDialogData) !== JSON.stringify(dialogData);
+
+    if (hasChanged) {
+      // Set flag to prevent circular updates
+      isUpdatingDialogData.current = true;
+      lastUpdateTimeRef.current = Date.now();
+
+      // Update parent's dialog data
+      setDialogData(newDialogData);
+
+      // Reset the flag after a delay
+      const timer = setTimeout(() => {
+        isUpdatingDialogData.current = false;
+      }, 50);
+
+      return () => clearTimeout(timer);
+    }
   }, [
     sentence,
     blankWord,
@@ -137,14 +300,16 @@ const FillInTheBlanksStepDialog: React.FC<FillInTheBlanksStepDialogProps> = ({
     pronunciationTip,
     facts,
     setDialogData,
-  ]);
+  ]); // REMOVED dialogData dependency - this is the key change
 
-  // Sobald ein Wort als Lücke ausgewählt wird, wird der Index ermittelt
+  // Handle blank index updates
   useEffect(() => {
-    if (blankWord && sentence) {
+    if (blankWord && sentence && !isUpdatingDialogData.current) {
       const parts = sentence.split(" ").filter((word) => word.trim() !== "");
       const blankIndex = parts.findIndex((word) => word === blankWord);
-      setDialogData((prev: any) => ({
+
+      // Use functional update pattern instead to avoid dependencies
+      setDialogData((prev) => ({
         ...prev,
         blankIndex,
       }));
@@ -152,8 +317,13 @@ const FillInTheBlanksStepDialog: React.FC<FillInTheBlanksStepDialogProps> = ({
   }, [blankWord, sentence, setDialogData]);
 
   const handleWordSelect = (word: string) => {
-    if (word.length > 2) {
+    if (word.length >= 2) {
+      // Geändert von > 2 zu >= 2
       setBlankWord(word);
+
+      // Generate distractors for the selected word
+      const generatedDistractors = generateDistractors(word, 2);
+      setDistractorWords(generatedDistractors);
     }
   };
 
@@ -263,20 +433,6 @@ const FillInTheBlanksStepDialog: React.FC<FillInTheBlanksStepDialogProps> = ({
       {/* Linke Seite: Konfiguration */}
       <div className="w-full md:w-3/5 space-y-6 bg-white p-4 rounded-lg">
         <div className="space-y-4">
-          <div>
-            <label className="block text-black mb-2" htmlFor="sentence">
-              Satz:
-            </label>
-            <input
-              id="sentence"
-              type="text"
-              value={sentence}
-              onChange={(e) => setSentence(e.target.value)}
-              className="w-full p-2 border border-gray-300 rounded text-black"
-              placeholder="Gib einen vollständigen Satz ein"
-            />
-          </div>
-
           {sentence && (
             <div>
               <p className="mb-2 text-black">

@@ -78,9 +78,9 @@ class StorageService {
 
           // Create a safe filename from the item text
           const safeItemText = itemText
-            .replace(/[^a-zA-Z0-9]/g, "_") // Replace non-alphanumeric chars with underscore
+            .replace(/[^a-zA-Z0-9]/g, "_")
             .toLowerCase()
-            .substring(0, 30); // Limit length to 30 chars
+            .substring(0, 30);
 
           // Generate a unique filename with the item text and a timestamp
           // Store directly in root, not in lesson-specific folder

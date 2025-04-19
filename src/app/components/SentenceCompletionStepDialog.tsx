@@ -1,15 +1,9 @@
 "use client";
-import React, {
-  useState,
-  useEffect,
-  useCallback,
-  useMemo,
-  useRef,
-} from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import IPhonePreview from "./IPhonePreview";
 import { StepType } from "../types/model";
 import { v4 as uuid } from "uuid";
-import { Plus, Upload, Trash2, X, Volume2, Lightbulb } from "lucide-react";
+import { Plus, Upload, Trash2, X, Volume2 } from "lucide-react";
 
 interface InfoItem {
   id: string;
@@ -51,7 +45,6 @@ interface SentenceCompletionStepDialogProps {
 const SentenceCompletionStepDialog: React.FC<
   SentenceCompletionStepDialogProps
 > = ({ dialogData, setDialogData, contentItems, isEditMode = false }) => {
-  // State for selected sentence and blank word
   const [selectedSentence, setSelectedSentence] = useState<string | null>(
     dialogData.question || null
   );
@@ -60,7 +53,6 @@ const SentenceCompletionStepDialog: React.FC<
   );
   const [customSentence, setCustomSentence] = useState<string>("");
 
-  // Zusätzliche Formulardaten (Instruktionstext, Bild, Audio, Fakten)
   const [formData, setFormData] = useState({
     instructionText: dialogData.instructionText || "Vervollständige den Satz.",
     imageUrl: dialogData.imageUrl || "",
@@ -75,13 +67,10 @@ const SentenceCompletionStepDialog: React.FC<
     pronunciation: "",
   });
 
-  // New effect to respond to dialogData changes from parent's ContentItemSelector
+  // Aktualisiere den Satz nur, wenn mainText vorhanden und unterschiedlich ist.
   useEffect(() => {
-    // Check if we have mainText data (this would be set by parent's selection)
-    if (dialogData.mainText) {
+    if (dialogData.mainText && dialogData.mainText !== selectedSentence) {
       setSelectedSentence(dialogData.mainText);
-
-      // If the parent selection included media, update those too
       if (dialogData.imageUrl) {
         setFormData((prev) => ({ ...prev, imageUrl: dialogData.imageUrl }));
       }
@@ -91,13 +80,17 @@ const SentenceCompletionStepDialog: React.FC<
           soundFileName: dialogData.soundFileName,
         }));
       }
-
-      // Reset blank word since we have a new sentence
+      // Falls der Satz durch den Parent geändert wird, setze die Lücke zurück.
       setBlankWord(null);
     }
-  }, [dialogData]);
+  }, [
+    dialogData.mainText,
+    dialogData.imageUrl,
+    dialogData.soundFileName,
+    selectedSentence,
+  ]);
 
-  // Wenn ein Satz ausgewählt oder eingegeben wurde, speichere ihn und teile ihn in Wörter
+  // Update question and sentenceParts based on selectedSentence.
   useEffect(() => {
     if (selectedSentence) {
       const parts = selectedSentence
@@ -107,15 +100,14 @@ const SentenceCompletionStepDialog: React.FC<
         ...prev,
         question: selectedSentence,
         sentenceParts: parts,
-        correctAnswer: null,
-        blankIndex: -1,
+        // Behalte correctAnswer und blankIndex unverändert, wenn bereits gesetzt.
         instructionText: formData.instructionText,
+        isComplete: !!(selectedSentence && blankWord),
       }));
-      setBlankWord(null);
     }
-  }, [selectedSentence, setDialogData, formData.instructionText]);
+  }, [selectedSentence, formData.instructionText, blankWord, setDialogData]);
 
-  // Wenn ein Wort als Lücke ausgewählt wurde, speichere es und ermittle den Index
+  // Update correctAnswer, blankIndex and isComplete when blankWord changes.
   useEffect(() => {
     if (blankWord && selectedSentence) {
       const parts = selectedSentence
@@ -126,6 +118,7 @@ const SentenceCompletionStepDialog: React.FC<
         ...prev,
         correctAnswer: blankWord,
         blankIndex,
+        isComplete: !!(selectedSentence && blankWord),
       }));
     }
   }, [blankWord, selectedSentence, setDialogData]);
@@ -140,7 +133,6 @@ const SentenceCompletionStepDialog: React.FC<
     }
   };
 
-  // Form-Handler für Instruktion, Bild-URL und Audio
   const handleFormChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
   ) => {
@@ -149,7 +141,6 @@ const SentenceCompletionStepDialog: React.FC<
     setDialogData((prev: any) => ({ ...prev, [name]: value }));
   };
 
-  // Bild-Upload
   const imageInputRef = useRef<HTMLInputElement>(null);
   const handleImageUpload = () => {
     imageInputRef.current?.click();
@@ -162,7 +153,6 @@ const SentenceCompletionStepDialog: React.FC<
     setDialogData((prev: any) => ({ ...prev, imageUrl }));
   };
 
-  // Audio-Upload
   const audioInputRef = useRef<HTMLInputElement>(null);
   const handleAudioUpload = () => {
     audioInputRef.current?.click();
@@ -174,7 +164,6 @@ const SentenceCompletionStepDialog: React.FC<
     setDialogData((prev: any) => ({ ...prev, soundFileName: file.name }));
   };
 
-  // Fact-Handler
   const handleNewFactChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
   ) => {
@@ -222,7 +211,6 @@ const SentenceCompletionStepDialog: React.FC<
     }));
   };
 
-  // Preview-Daten für die iPhonePreview
   const previewData = useMemo(
     () => ({
       instructionText: formData.instructionText,
@@ -241,12 +229,10 @@ const SentenceCompletionStepDialog: React.FC<
     <div className="flex flex-col md:flex-row gap-6">
       {/* Linke Seite: Konfiguration */}
       <div className="w-full md:w-3/5">
-        {/* Satzauswahl und -eingabe */}
         <div className="p-6 bg-white rounded-lg mb-6">
           <h2 className="text-xl font-bold text-center mb-4 text-black">
             Satz vervollständigen
           </h2>
-
           <div className="mt-4">
             <label className="block mb-2 text-sm font-medium text-black">
               Eigenen Satz eingeben:
@@ -267,7 +253,6 @@ const SentenceCompletionStepDialog: React.FC<
               </button>
             </div>
           </div>
-
           {selectedSentence && (
             <div className="mt-4">
               <p className="mb-2 text-black">
@@ -297,8 +282,6 @@ const SentenceCompletionStepDialog: React.FC<
             </div>
           )}
         </div>
-
-        {/* Formular für zusätzliche Details */}
         <div className="p-6 bg-white rounded-lg">
           <h2 className="text-xl font-bold mb-4 text-black">
             Zusätzliche Informationen
@@ -420,13 +403,10 @@ const SentenceCompletionStepDialog: React.FC<
               )}
             </div>
           </div>
-
-          {/* Fakten-Bereich */}
           <div className="mb-6">
             <h3 className="text-lg font-semibold mb-4 text-black">
               Zusätzliche Informationen
             </h3>
-
             {(formData.facts || []).length > 0 && (
               <div className="mb-4 space-y-3">
                 {(formData.facts || []).map((fact: InfoItem) => (
@@ -474,7 +454,6 @@ const SentenceCompletionStepDialog: React.FC<
                 ))}
               </div>
             )}
-
             <div className="border p-4 rounded bg-blue-50">
               <h4 className="font-medium mb-3 text-black">
                 Neue Information hinzufügen

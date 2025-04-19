@@ -84,12 +84,16 @@ const WordOrderingStepDialog: React.FC<WordOrderingStepDialogProps> = ({
   const imageInputRef = useRef<HTMLInputElement>(null);
   const audioInputRef = useRef<HTMLInputElement>(null);
 
+  // This effect updates the dialogData with all the component's state values
   useEffect(() => {
     const sentenceToUse = selectedSentence || customSentence;
     const words = sentenceToUse
       .split(" ")
       .map((w) => w.trim())
       .filter((w) => w !== "");
+
+    // Check if data is complete for saving
+    const isDataComplete = sentenceToUse.length > 0 && words.length >= 2;
 
     setDialogData({
       ...dialogData,
@@ -99,6 +103,7 @@ const WordOrderingStepDialog: React.FC<WordOrderingStepDialogProps> = ({
       wordOptions: words,
       correctSentence: sentenceToUse || "Satz nicht ausgewählt",
       facts,
+      isComplete: isDataComplete, // Explicitly set isComplete flag based on validation
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [

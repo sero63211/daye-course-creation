@@ -375,10 +375,13 @@ const IPhonePreview: React.FC<IPhonePreviewProps> = ({
     const soundFileName = stepData?.soundFileName || "";
     const correctOption = stepData?.correctOption || "Noch nichts ausgewählt";
 
-    // Verwende die drei zusätzlichen Felder als Antworttexte:
-    const answer1 = stepData?.additionalField1 || "Antwort 1";
-    const answer2 = stepData?.additionalField2 || "Antwort 2";
-    const answer3 = stepData?.additionalField3 || "Antwort 3";
+    // Die neue options-Array-Struktur verwenden
+    const options = stepData?.options || [];
+
+    // Stellen sicher, dass wir immer mind. 2 Optionen anzeigen
+    // auch wenn weniger vorhanden sind (für Vorschau)
+    const displayOptions =
+      options.length > 0 ? options : ["Antwort 1", "Antwort 2"];
 
     return (
       <>
@@ -434,38 +437,21 @@ const IPhonePreview: React.FC<IPhonePreviewProps> = ({
             </div>
           )}
 
-          {/* Antwort-Buttons, gefüllt mit den Inhalten der zusätzlichen Felder */}
+          {/* Dynamische Antwort-Buttons basierend auf dem options-Array */}
           <div className="flex flex-col space-y-4">
-            <button
-              onClick={(e) => e.stopPropagation()}
-              className={`w-full bg-blue-100 border border-blue-400 rounded-xl p-3 text-center text-black font-medium hover:bg-blue-200 ${
-                correctOption === answer1
-                  ? "bg-blue-500 text-white border-blue-500"
-                  : ""
-              }`}
-            >
-              {answer1}
-            </button>
-            <button
-              onClick={(e) => e.stopPropagation()}
-              className={`w-full bg-blue-100 border border-blue-400 rounded-xl p-3 text-center text-black font-medium hover:bg-blue-200 ${
-                correctOption === answer2
-                  ? "bg-blue-500 text-white border-blue-500"
-                  : ""
-              }`}
-            >
-              {answer2}
-            </button>
-            <button
-              onClick={(e) => e.stopPropagation()}
-              className={`w-full bg-blue-100 border border-blue-400 rounded-xl p-3 text-center text-black font-medium hover:bg-blue-200 ${
-                correctOption === answer3
-                  ? "bg-blue-500 text-white border-blue-500"
-                  : ""
-              }`}
-            >
-              {answer3}
-            </button>
+            {displayOptions.map((option, index) => (
+              <button
+                key={index}
+                onClick={(e) => e.stopPropagation()}
+                className={`w-full bg-blue-100 border border-blue-400 rounded-xl p-3 text-center text-black font-medium hover:bg-blue-200 ${
+                  correctOption === option
+                    ? "bg-blue-500 text-white border-blue-500"
+                    : ""
+                }`}
+              >
+                {option}
+              </button>
+            ))}
           </div>
         </div>
       </>

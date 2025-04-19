@@ -1,11 +1,18 @@
 "use client";
 import React, { useState, useEffect, useRef, useMemo } from "react";
-import { Upload, Trash2, Volume2, X, Plus } from "lucide-react";
+import {
+  Upload,
+  Trash2,
+  Volume2,
+  X,
+  Plus,
+  CheckCircle2,
+  AlertTriangle,
+} from "lucide-react";
 import IPhonePreview from "./IPhonePreview";
 import { StepType } from "../types/model";
 import { v4 as uuid } from "uuid";
 
-// Typdefinition für ein erstelltes Inhaltselement
 export interface EnhancedContentItem {
   id: string;
   text: string;
@@ -28,9 +35,7 @@ interface DialogData {
   correctOption?: string;
   imageUrl?: string;
   soundFileName?: string;
-  additionalField1?: string;
-  additionalField2?: string;
-  additionalField3?: string;
+  options?: string[];
   facts?: InfoItem[];
   isComplete?: boolean;
 }
@@ -41,6 +46,7 @@ interface LanguageQuestionStepDialogProps {
   contentItems: EnhancedContentItem[];
   stepType?: StepType;
   isEditMode?: boolean;
+  showValidation?: boolean;
 }
 
 const LanguageQuestionStepDialog: React.FC<LanguageQuestionStepDialogProps> = ({
@@ -48,26 +54,25 @@ const LanguageQuestionStepDialog: React.FC<LanguageQuestionStepDialogProps> = ({
   setDialogData,
   contentItems,
   isEditMode = false,
+  showValidation = false,
 }) => {
-  // Lokaler State
+  // Nur einmal initialisieren, danach eigenständig verwalten.
   const [questionText, setQuestionText] = useState<string>(
     dialogData.questionText || ""
   );
+  const initialOptions =
+    dialogData.options && dialogData.options.length >= 2
+      ? dialogData.options
+      : dialogData.options && dialogData.options.length === 1
+      ? [...dialogData.options, ""]
+      : ["", ""];
+  const [options, setOptions] = useState<string[]>(initialOptions);
   const [correctOption, setCorrectOption] = useState<string>(
     dialogData.correctOption || ""
   );
   const [imageUrl, setImageUrl] = useState<string>(dialogData.imageUrl || "");
   const [soundFileName, setSoundFileName] = useState<string>(
     dialogData.soundFileName || ""
-  );
-  const [additionalField1, setAdditionalField1] = useState<string>(
-    dialogData.additionalField1 || ""
-  );
-  const [additionalField2, setAdditionalField2] = useState<string>(
-    dialogData.additionalField2 || ""
-  );
-  const [additionalField3, setAdditionalField3] = useState<string>(
-    dialogData.additionalField3 || ""
   );
   const [facts, setFacts] = useState<InfoItem[]>(dialogData.facts || []);
   const [newFact, setNewFact] = useState<Partial<InfoItem>>({
@@ -78,54 +83,48 @@ const LanguageQuestionStepDialog: React.FC<LanguageQuestionStepDialogProps> = ({
     pronunciation: "",
   });
 
-  // Effect to respond to dialogData changes from parent's ContentItemSelector
-  useEffect(() => {
-    // For question types, the parent sets questionText and correctOption
-    if (dialogData.questionText && dialogData.questionText !== questionText) {
-      setQuestionText(dialogData.questionText);
-    }
+  const [debugInfo, setDebugInfo] = useState({
+    validOptions: [] as string[],
+    hasEnoughOptions: false,
+    hasCorrectOption: false,
+    isComplete: false,
+  });
 
-    if (
-      dialogData.correctOption &&
-      dialogData.correctOption !== correctOption
-    ) {
-      setCorrectOption(dialogData.correctOption);
-    }
-
-    // If the parent selection included media, update those too
-    if (dialogData.imageUrl && dialogData.imageUrl !== imageUrl) {
-      setImageUrl(dialogData.imageUrl);
-    }
-
-    if (
-      dialogData.soundFileName &&
-      dialogData.soundFileName !== soundFileName
-    ) {
-      setSoundFileName(dialogData.soundFileName);
-    }
-  }, [dialogData, questionText, correctOption, imageUrl, soundFileName]);
-
-  // Refs für Datei-Uploads
   const imageInputRef = useRef<HTMLInputElement>(null);
   const audioInputRef = useRef<HTMLInputElement>(null);
 
-  // Update dialogData, sobald sich Konfigurationswerte ändern
-  useEffect(() => {
-    const isComplete =
-      questionText.trim() !== "" &&
-      correctOption.trim() !== "" &&
-      additionalField1.trim() !== "" &&
-      additionalField2.trim() !== "" &&
-      additionalField3.trim() !== "";
+  const validateData = () => {
+    const validOptions = options.filter((opt) => opt.trim() !== "");
+    const hasQuestion = questionText.trim() !== "";
+    const hasEnoughOptions = validOptions.length >= 2;
+    const hasCorrectOption = correctOption.trim() !== "";
+    const isComplete = hasQuestion && hasEnoughOptions && hasCorrectOption;
+    setDebugInfo({
+      validOptions,
+      hasEnoughOptions,
+      hasCorrectOption,
+      isComplete,
+    });
+    return { validOptions, isComplete };
+  };
 
+  useEffect(() => {
+    const { validOptions, isComplete } = validateData();
+    let updatedCorrectOption = correctOption;
+    if (!updatedCorrectOption.trim() && validOptions.length > 0) {
+      updatedCorrectOption = validOptions[0];
+      setCorrectOption(updatedCorrectOption);
+    }
+    if (updatedCorrectOption && !validOptions.includes(updatedCorrectOption)) {
+      updatedCorrectOption = validOptions.length > 0 ? validOptions[0] : "";
+      setCorrectOption(updatedCorrectOption);
+    }
     setDialogData({
       questionText,
-      correctOption,
+      correctOption: updatedCorrectOption,
       imageUrl,
       soundFileName,
-      additionalField1,
-      additionalField2,
-      additionalField3,
+      options: [...options],
       facts,
       isComplete,
     });
@@ -134,14 +133,11 @@ const LanguageQuestionStepDialog: React.FC<LanguageQuestionStepDialogProps> = ({
     correctOption,
     imageUrl,
     soundFileName,
-    additionalField1,
-    additionalField2,
-    additionalField3,
+    options,
     facts,
     setDialogData,
   ]);
 
-  // Handler für Bild-Upload
   const handleImageUpload = () => {
     imageInputRef.current?.click();
   };
@@ -153,7 +149,6 @@ const LanguageQuestionStepDialog: React.FC<LanguageQuestionStepDialogProps> = ({
     setImageUrl(newImageUrl);
   };
 
-  // Handler für Audio-Upload
   const handleAudioUpload = () => {
     audioInputRef.current?.click();
   };
@@ -164,7 +159,6 @@ const LanguageQuestionStepDialog: React.FC<LanguageQuestionStepDialogProps> = ({
     setSoundFileName(file.name);
   };
 
-  // Funktion zum Hinzufügen eines neuen Facts
   const handleNewFactChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setNewFact((prev) => ({ ...prev, [name]: value }));
@@ -193,122 +187,207 @@ const LanguageQuestionStepDialog: React.FC<LanguageQuestionStepDialogProps> = ({
     setFacts((prev) => prev.filter((f) => f.id !== id));
   };
 
-  // Filter: Nur Inhalte mit >= 2 Wörtern
-  const validContentItems = contentItems.filter(
-    (item) => item.text.trim().split(/\s+/).length >= 2
-  );
+  const handleOptionChange = (index: number, value: string) => {
+    const newOptions = [...options];
+    newOptions[index] = value;
+    if (options[index] === correctOption) {
+      setCorrectOption(value);
+    }
+    setOptions(newOptions);
+  };
 
-  // Preview-Daten für IPhonePreview
+  const handleAddOption = () => {
+    setOptions((prev) => [...prev, ""]);
+  };
+
+  const handleRemoveOption = (index: number) => {
+    if (options.length <= 2) return;
+    const optionToRemove = options[index];
+    const newOptions = [...options];
+    newOptions.splice(index, 1);
+    if (optionToRemove === correctOption) {
+      const firstValidOption =
+        newOptions.find((opt) => opt.trim() !== "") || "";
+      setCorrectOption(firstValidOption);
+    }
+    setOptions(newOptions);
+  };
+
+  const handleSelectCorrectOption = (option: string) => {
+    setCorrectOption(option);
+  };
+
   const previewData = useMemo(
     () => ({
       questionText,
       correctOption,
       imageUrl,
       soundFileName,
-      additionalField1,
-      additionalField2,
-      additionalField3,
+      options,
       facts,
     }),
-    [
-      questionText,
-      correctOption,
-      imageUrl,
-      soundFileName,
-      additionalField1,
-      additionalField2,
-      additionalField3,
-      facts,
-    ]
+    [questionText, correctOption, imageUrl, soundFileName, options, facts]
   );
+
+  const validOptions = options.filter((opt) => opt.trim() !== "");
 
   return (
     <div className="flex flex-col md:flex-row gap-6">
-      {/* Linke Seite: Konfiguration */}
       <div className="w-full md:w-3/5 space-y-6 bg-white p-4 rounded-lg">
         <div className="space-y-4">
+          <div className="p-3 border border-blue-200 bg-blue-50 rounded text-sm">
+            <details>
+              <summary className="font-semibold text-blue-700 cursor-pointer">
+                Debug Info (Klicken zum Anzeigen)
+              </summary>
+              <div className="mt-2 space-y-1 text-xs">
+                <p>
+                  <span className="font-semibold">Question:</span>{" "}
+                  {questionText || "[leer]"}
+                </p>
+                <p>
+                  <span className="font-semibold">Correct Option:</span>{" "}
+                  {correctOption || "[leer]"}
+                </p>
+                <p>
+                  <span className="font-semibold">Valid Options:</span>{" "}
+                  {debugInfo.validOptions.join(", ") || "[keine]"}
+                </p>
+                <p>
+                  <span className="font-semibold">Has Enough Options:</span>{" "}
+                  {debugInfo.hasEnoughOptions ? "✓" : "✗"}
+                </p>
+                <p>
+                  <span className="font-semibold">Has Correct Option:</span>{" "}
+                  {debugInfo.hasCorrectOption ? "✓" : "✗"}
+                </p>
+                <p>
+                  <span className="font-semibold">Is Complete:</span>{" "}
+                  {debugInfo.isComplete ? "✓" : "✗"}
+                </p>
+              </div>
+            </details>
+          </div>
           <div>
             <label className="block text-black mb-2" htmlFor="questionText">
-              Frage:
+              Frage:{" "}
+              {!questionText.trim() && showValidation && (
+                <span className="text-red-500 ml-1">*Erforderlich</span>
+              )}
             </label>
             <input
               id="questionText"
               type="text"
               value={questionText}
               onChange={(e) => setQuestionText(e.target.value)}
-              className="w-full p-2 border border-gray-300 rounded text-black"
+              className={`w-full p-2 border ${
+                !questionText.trim() && showValidation
+                  ? "border-red-500"
+                  : "border-gray-300"
+              } rounded text-black`}
               placeholder="Geben Sie die Frage ein"
             />
           </div>
-
-          {/* Klickbare Inhalte */}
-          {validContentItems.length > 0 && (
+          <div>
+            <div className="flex justify-between items-center mb-2">
+              <label className="block text-black">
+                Antwortmöglichkeiten:{" "}
+                {!debugInfo.hasEnoughOptions && showValidation && (
+                  <span className="text-red-500 ml-1">
+                    *Mind. 2 erforderlich
+                  </span>
+                )}
+              </label>
+              <button
+                onClick={handleAddOption}
+                className="px-2 py-1 bg-blue-500 text-white rounded flex items-center"
+              >
+                <Plus size={16} className="mr-1" />
+                Hinzufügen
+              </button>
+            </div>
+            <div className="space-y-2">
+              {options.map((option, index) => (
+                <div key={index} className="flex items-center">
+                  <input
+                    type="text"
+                    placeholder={`Antwortmöglichkeit ${index + 1}${
+                      index < 2 ? " (erforderlich)" : ""
+                    }`}
+                    value={option}
+                    onChange={(e) => handleOptionChange(index, e.target.value)}
+                    className={`flex-1 p-2 border ${
+                      index < 2 && option.trim() === "" && showValidation
+                        ? "border-red-500"
+                        : "border-gray-300"
+                    } rounded text-black`}
+                  />
+                  {options.length > 2 && (
+                    <button
+                      onClick={() => handleRemoveOption(index)}
+                      className="ml-2 text-red-500 hover:text-red-700"
+                    >
+                      <X size={18} />
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+          {validOptions.length >= 1 && (
             <div>
-              <p className="text-black mb-2">Wählen Sie eine Option:</p>
-              <div className="flex flex-wrap gap-2">
-                {validContentItems.map((item) => (
+              <p
+                className={`block text-black mb-2 ${
+                  !debugInfo.hasCorrectOption && showValidation
+                    ? "text-red-500 font-bold"
+                    : ""
+                }`}
+              >
+                Wählen Sie die richtige Antwort:
+                {!debugInfo.hasCorrectOption && showValidation && (
+                  <span className="text-red-500 ml-1">*Erforderlich</span>
+                )}
+              </p>
+              <div className="space-y-2">
+                {validOptions.map((option, index) => (
                   <button
-                    key={item.id}
-                    onClick={() => setCorrectOption(item.text)}
-                    className={`px-4 py-2 rounded border transition-colors duration-200 ${
-                      correctOption === item.text
-                        ? "bg-blue-500 text-white border-blue-500"
-                        : "bg-gray-100 text-black border-gray-300 hover:bg-gray-200"
+                    key={index}
+                    onClick={() => handleSelectCorrectOption(option)}
+                    className={`p-2 w-full text-left border rounded ${
+                      correctOption === option
+                        ? "bg-green-100 border-green-500"
+                        : !debugInfo.hasCorrectOption && showValidation
+                        ? "border-red-300 bg-red-50"
+                        : "border-gray-300 hover:bg-gray-100"
                     }`}
                   >
-                    {item.text}
+                    <div className="flex items-center">
+                      {correctOption === option && (
+                        <CheckCircle2
+                          size={16}
+                          className="text-green-500 mr-2"
+                        />
+                      )}
+                      <span className="text-black">{option}</span>
+                    </div>
                   </button>
                 ))}
               </div>
+              {correctOption &&
+                options.some((opt) => opt === correctOption) && (
+                  <div className="mt-2 p-2 bg-blue-50 border border-blue-200 rounded text-sm text-blue-800">
+                    <p className="flex items-center">
+                      <AlertTriangle size={16} className="mr-1" />
+                      Die richtige Antwort ist "{correctOption}". Klicken Sie
+                      auf eine andere Option, um sie zu ändern.
+                    </p>
+                  </div>
+                )}
             </div>
           )}
-
-          {/* Drei zusätzliche Pflichtfelder */}
-          <div>
-            <label className="block text-black mb-2" htmlFor="additionalField1">
-              Antwortmöglichkeit 1:
-            </label>
-            <input
-              id="additionalField1"
-              type="text"
-              value={additionalField1}
-              onChange={(e) => setAdditionalField1(e.target.value)}
-              className="w-full p-2 border border-gray-300 rounded text-black"
-              placeholder="Erste Antwortmöglichkeit eingeben"
-            />
-          </div>
-
-          <div>
-            <label className="block text-black mb-2" htmlFor="additionalField2">
-              Antwortmöglichkeit 2:
-            </label>
-            <input
-              id="additionalField2"
-              type="text"
-              value={additionalField2}
-              onChange={(e) => setAdditionalField2(e.target.value)}
-              className="w-full p-2 border border-gray-300 rounded text-black"
-              placeholder="Zweite Antwortmöglichkeit eingeben"
-            />
-          </div>
-
-          <div>
-            <label className="block text-black mb-2" htmlFor="additionalField3">
-              Antwortmöglichkeit 3:
-            </label>
-            <input
-              id="additionalField3"
-              type="text"
-              value={additionalField3}
-              onChange={(e) => setAdditionalField3(e.target.value)}
-              className="w-full p-2 border border-gray-300 rounded text-black"
-              placeholder="Dritte Antwortmöglichkeit eingeben"
-            />
-          </div>
-
           <div>
             <label className="block text-black mb-2" htmlFor="imageUrl">
-              Bild:
+              Bild (optional):
             </label>
             <div className="flex items-center">
               <input
@@ -351,10 +430,9 @@ const LanguageQuestionStepDialog: React.FC<LanguageQuestionStepDialogProps> = ({
               </div>
             )}
           </div>
-
           <div>
             <label className="block text-black mb-2" htmlFor="soundFileName">
-              Audio:
+              Audio (optional):
             </label>
             <div className="flex items-center">
               <input
@@ -396,11 +474,9 @@ const LanguageQuestionStepDialog: React.FC<LanguageQuestionStepDialogProps> = ({
               </div>
             )}
           </div>
-
-          {/* Zusätzliche Informationen */}
           <div className="p-4 bg-white border rounded">
             <h3 className="text-black font-bold mb-2">
-              Zusätzliche Informationen
+              Zusätzliche Informationen (optional)
             </h3>
             {facts.length > 0 && (
               <div className="mb-4 space-y-3">
@@ -449,7 +525,6 @@ const LanguageQuestionStepDialog: React.FC<LanguageQuestionStepDialogProps> = ({
                 ))}
               </div>
             )}
-
             <div className="border p-3 rounded bg-blue-50">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
@@ -535,8 +610,6 @@ const LanguageQuestionStepDialog: React.FC<LanguageQuestionStepDialogProps> = ({
           </div>
         </div>
       </div>
-
-      {/* Rechte Seite: iPhone-Vorschau */}
       <div className="w-full md:w-2/5 flex justify-center">
         <div className="sticky top-8">
           <IPhonePreview

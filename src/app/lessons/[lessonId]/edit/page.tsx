@@ -349,7 +349,7 @@ const ContentManagerView: React.FC<ContentManagerViewProps> = ({
     }
   }, [selectedSteps, previewStep]);
 
-  // Effect to check for unsaved changes
+  // Complete useEffect for change detection
   useEffect(() => {
     // Use a function to avoid React's useEffect cleanup
     const checkForChanges = () => {
@@ -383,25 +383,18 @@ const ContentManagerView: React.FC<ContentManagerViewProps> = ({
           JSON.stringify(normalizedCurrentSteps) !==
           JSON.stringify(normalizedSavedSteps);
 
+        const lessonTitle = lessonData?.title || "";
+        const overviewTitle = learningOverviewModel?.title || "";
+
+        const lessonTitleChanged = lessonTitle !== overviewTitle;
+
+        const lessonDescriptionChanged = false;
+
         const lessonDataChanged =
-          lessonData?.title !== learningOverviewModel?.title ||
-          lessonData?.description !== learningOverviewModel?.description;
+          lessonTitleChanged || lessonDescriptionChanged;
 
         const hasChanges =
           contentItemsChanged || stepsChanged || lessonDataChanged;
-
-        // Add debug logging
-        console.log("Change detection details:", {
-          contentItemsChanged,
-          stepsChanged,
-          lessonDataChanged,
-          hasChanges,
-          contentItemsLength: contentItems.length,
-          lastSavedContentItemsLength: lastSavedContentItems.length,
-          selectedStepsLength: selectedSteps.length,
-          learningOverviewStepsLength:
-            learningOverviewModel?.learningSteps?.length || 0,
-        });
 
         setHasUnsavedChanges(hasChanges);
       } catch (error) {
@@ -681,7 +674,7 @@ const ContentManagerView: React.FC<ContentManagerViewProps> = ({
             ...baseContent,
             text: item.text,
             translation: item.translation,
-            type: item.contentType as "vocabulary" | "sentence",
+            type: item.contentType as "vocabulary" | "sentence" | "table",
             imageUrl: item.imageUrl,
             audioUrl: item.audioUrl,
             soundFileName: item.soundFileName,
@@ -1018,13 +1011,6 @@ const ContentManagerView: React.FC<ContentManagerViewProps> = ({
                     saveError={saveError}
                     disabled={isSaving || !hasUnsavedChanges}
                   />
-                </div>
-              )}
-              {process.env.NODE_ENV !== "production" && (
-                <div className="text-xs text-gray-500 ml-2">
-                  Has unsaved changes: {hasUnsavedChanges ? "Yes" : "No"} | Is
-                  saving: {isSaving ? "Yes" : "No"} | Button should be:{" "}
-                  {!hasUnsavedChanges || isSaving ? "Disabled" : "Enabled"}
                 </div>
               )}
             </div>
